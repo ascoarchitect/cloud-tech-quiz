@@ -1,0 +1,23 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-cloudtechquiz-dev-25d2c-authRole",
+      "UnauthRoleArn": "arn:aws:iam::712954885340:role/amplify-cloudtechquiz-dev-25d2c-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::712954885340:role/amplify-cloudtechquiz-dev-25d2c-authRole",
+      "Region": "eu-west-2",
+      "DeploymentBucketName": "amplify-cloudtechquiz-dev-25d2c-deployment",
+      "UnauthRoleName": "amplify-cloudtechquiz-dev-25d2c-unauthRole",
+      "StackName": "amplify-cloudtechquiz-dev-25d2c",
+      "StackId": "arn:aws:cloudformation:eu-west-2:712954885340:stack/amplify-cloudtechquiz-dev-25d2c/94c47070-f6b5-11ef-84ca-06a8168f2e95",
+      "AmplifyAppId": "d1ygpvanttkpau"
+    },
+    "categories": {
+      "auth": {
+        "cloudtechquiz9fd9dc64": {}
+      },
+      "api": {
+        "cloudtechquiz": {}
+      }
+    }
+  }
+}

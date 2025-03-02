@@ -1,0 +1,118 @@
+type Question @model
+@auth(rules: [
+  { allow: public, operations: [read] },
+  { allow: groups, groups: ["Admin"], operations: [create, update, delete, read] }
+]) {
+  id: ID!
+  text: String!
+  options: [Option!]!
+  correctAnswer: String!
+  explanation: String!
+  category: String!
+  difficulty: String!
+  tags: [String!]
+}
+
+type Option {
+  id: String!
+  text: String!
+}
+
+type Test @model
+@auth(rules: [
+  { allow: public, operations: [read] },
+  { allow: groups, groups: ["Admin"], operations: [create, update, delete, read] }
+]) {
+  id: ID!
+  name: String!
+  description: String
+  timeLimit: Int!
+  numQuestions: Int!
+  difficulty: [String!]
+  categories: [String!]
+  active: Boolean!
+  closureDate: AWSDateTime
+  questions: [ID!]
+  settings: TestSettings
+}
+
+type TestSettings {
+  allowRetake: Boolean!
+  randomizeQuestions: Boolean!
+  randomizeOptions: Boolean!
+  showResultImmediately: Boolean!
+}
+
+type Response @model
+@auth(rules: [
+  { allow: private, operations: [create, read] },
+  { allow: groups, groups: ["Admin"], operations: [read, delete] },
+  { allow: owner, operations: [read] }
+]) {
+  id: ID!
+  testId: ID!
+  userId: ID!
+  userName: String!
+  startTime: AWSDateTime!
+  endTime: AWSDateTime
+  answers: [Answer!]
+  score: Float
+  completed: Boolean!
+  cheatingAttempts: Int
+  cheatingDetails: [String]
+}
+
+type Answer {
+  questionId: ID!
+  selectedOption: String!
+  correct: Boolean!
+  timeSpent: Int
+}
+
+type Query {
+  getTestStatistics(testId: ID!): TestStatistics @function(name: "getTestStatistics-${env}") @auth(rules: [{ allow: groups, groups: ["Admin"] }])
+  validateImportQuestions(questions: [QuestionInput!]!): ValidationResult @function(name: "validateImportQuestions-${env}") @auth(rules: [{ allow: groups, groups: ["Admin"] }])
+  importQuestions(questions: [QuestionInput!]!): ImportResult @function(name: "importQuestions-${env}") @auth(rules: [{ allow: groups, groups: ["Admin"] }])
+}
+
+type TestStatistics {
+  testId: ID!
+  totalParticipants: Int!
+  completedTests: Int!
+  incompleteTests: Int!
+  averageScore: Float!
+  cheatingAttempts: Int!
+  categoryStats: [CategoryStat!]!
+}
+
+type CategoryStat {
+  category: String!
+  averageScore: Float!
+  questionCount: Int!
+}
+
+type ValidationResult {
+  valid: Boolean!
+  errors: [String!]
+}
+
+type ImportResult {
+  success: Boolean!
+  importedCount: Int!
+  errors: [String!]
+}
+
+input QuestionInput {
+  text: String!
+  options: [OptionInput!]!
+  correctAnswer: String!
+  explanation: String!
+  category: String!
+  difficulty: String!
+  tags: [String!]
+}
+
+input OptionInput {
+  id: String!
+  text: String!
+}
