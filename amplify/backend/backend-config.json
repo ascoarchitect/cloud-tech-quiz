@@ -22,7 +22,7 @@
           ],
           "defaultAuthentication": {
             "apiKeyConfig": {
-              "apiKeyExpirationDate": "2025-03-08T15:58:43.893Z",
+              "apiKeyExpirationDate": "2025-03-09T22:45:04.816Z",
               "apiKeyExpirationDays": 7,
               "description": "cloudtechquizapikey"
             },
