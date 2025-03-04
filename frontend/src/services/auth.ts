@@ -238,3 +238,161 @@ export function parseJwt(token: string): any {
     return null;
   }
 }
+
+/**
+ * Debug the current authentication state
+ */
+export function debugAuthState(): void {
+  const user = getCurrentUser();
+  console.log("Current user from Cognito:", user);
+
+  if (user) {
+    user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+      if (err) {
+        console.error("Error getting session:", err);
+        return;
+      }
+
+      console.log("Session valid:", session?.isValid());
+      console.log("ID Token payload:", session?.getIdToken().decodePayload());
+    });
+  }
+
+  // Check local storage
+  console.log("Local storage tokens:", {
+    accessToken: !!localStorage.getItem("accessToken"),
+    idToken: !!localStorage.getItem("idToken"),
+    refreshToken: !!localStorage.getItem("refreshToken"),
+  });
+}
+
+/**
+ * Force refresh the current session
+ */
+export function refreshSession(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const user = getCurrentUser();
+
+    if (!user) {
+      console.log("No user found to refresh session");
+      resolve(false);
+      return;
+    }
+
+    user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+      if (err) {
+        console.error("Error refreshing session:", err);
+        resolve(false);
+        return;
+      }
+
+      if (session && session.isValid()) {
+        console.log("Session refreshed successfully");
+
+        // Store the tokens in localStorage as backup
+        const idToken = session.getIdToken().getJwtToken();
+        const accessToken = session.getAccessToken().getJwtToken();
+        const refreshToken = session.getRefreshToken().getToken();
+
+        localStorage.setItem("idToken", idToken);
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+
+        resolve(true);
+      } else {
+        console.log("Refreshed session is not valid");
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
+ * Parse URL parameters after redirect from Cognito hosted UI
+ * This is crucial for handling the authorization code from the redirect
+ */
+export function handleAuthRedirect(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const authCode = urlParams.get("code");
+
+    if (!authCode) {
+      console.log("No authorization code found in URL");
+      resolve(false);
+      return;
+    }
+
+    console.log("Authorization code found, handling redirect...");
+
+    // Remove the code from the URL to avoid issues on refresh
+    const newUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+
+    // Force a session refresh to ensure the SDK picks up the authentication
+    setTimeout(() => {
+      refreshSession()
+        .then((success) => {
+          console.log("Session refresh after redirect:", success);
+          resolve(success);
+        })
+        .catch((err) => {
+          console.error("Error during session refresh:", err);
+          resolve(false);
+        });
+    }, 500); // Small delay to ensure browser has time to process any cookies
+  });
+}
+
+export async function processAuthCode(code: string): Promise<boolean> {
+  try {
+    // Build the token endpoint URL
+    const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN;
+    const region = import.meta.env.VITE_AWS_REGION || "us-east-1";
+    const tokenEndpoint = `https://${cognitoDomain}.auth.${region}.amazoncognito.com/oauth2/token`;
+
+    console.log("Token endpoint:", tokenEndpoint);
+
+    // Prepare the form data
+    const params = new URLSearchParams();
+    params.append("grant_type", "authorization_code");
+    params.append("client_id", import.meta.env.VITE_USER_POOL_CLIENT_ID);
+    params.append("code", code);
+    params.append("redirect_uri", window.location.origin);
+
+    console.log("Exchanging code for tokens...");
+
+    // Make the request
+    const response = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Token exchange failed:", response.status, errorData);
+      return false;
+    }
+
+    const tokens = await response.json();
+    console.log("Token exchange successful");
+
+    // Store tokens in localStorage
+    localStorage.setItem("idToken", tokens.id_token);
+    localStorage.setItem("accessToken", tokens.access_token);
+    localStorage.setItem("refreshToken", tokens.refresh_token);
+
+    // Parse and store user info
+    const userInfo = parseJwt(tokens.id_token);
+    if (userInfo) {
+      console.log("User info from token:", userInfo);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error processing auth code:", error);
+    return false;
+  }
+}

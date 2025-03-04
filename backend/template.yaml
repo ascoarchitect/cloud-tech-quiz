@@ -16,7 +16,7 @@ Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Architectures: [arm64]
     Environment:
       Variables:
@@ -245,7 +245,8 @@ Resources:
       Cors:
         AllowMethods: "'GET, POST, PUT, DELETE, OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !Sub "'https://${CloudFrontDistribution.DomainName}'"
+        AllowCredentials: true
 
   # Question API Functions
   GetQuestionFunction:
@@ -554,11 +555,14 @@ Resources:
             MaxAge: 3000
 
   # CloudFront Origin Access Identity
-  CloudFrontOAI:
-    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
     Properties:
-      CloudFrontOriginAccessIdentityConfig:
-        Comment: !Sub "OAI for ${Environment} environment"
+      OriginAccessControlConfig:
+        Name: !Sub "${Author}cloudquizapp-oac-${Environment}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   # S3 bucket policy that allows CloudFront access
   WebsiteBucketPolicy:
@@ -566,12 +570,17 @@ Resources:
     Properties:
       Bucket: !Ref WebsiteBucket
       PolicyDocument:
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
-              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+              Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub arn:aws:s3:::${WebsiteBucket}/*
+            Resource: !Sub "arn:aws:s3:::${WebsiteBucket}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
 
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -580,8 +589,8 @@ Resources:
         Origins:
           - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
             Id: S3Origin
-            S3OriginConfig:
-              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOAI}
+            S3OriginConfig: {}  # Keep empty but required for S3 origins
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
         Enabled: true
         DefaultRootObject: index.html
         HttpVersion: http2
@@ -591,10 +600,7 @@ Resources:
             - HEAD
             - OPTIONS
           TargetOriginId: S3Origin
-          ForwardedValues:
-            QueryString: false
-            Cookies:
-              Forward: none
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # AWS managed policy ID for "CachingDisabled"
           ViewerProtocolPolicy: redirect-to-https
         CustomErrorResponses:
           - ErrorCode: 403

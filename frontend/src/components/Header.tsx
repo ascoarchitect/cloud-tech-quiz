@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { signOut, redirectToLogin } from "../services/auth";
+import { useAuth } from "../auth/context";
 import {
   AppBar,
   Toolbar,
@@ -31,15 +31,11 @@ import {
   QuestionAnswer as QuestionIcon,
 } from "@mui/icons-material";
 
-interface HeaderProps {
-  isAdmin: boolean;
-  isAuthenticated: boolean;
-}
-
-const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
+const Header: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const navigate = useNavigate();
+  const { user, authStatus, isAdmin, login, logout } = useAuth();
 
   // State for user menu
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -58,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
   // Handle logout
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       handleMenuClose();
     } catch (error) {
       console.error("Error signing out:", error);
@@ -99,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
   // Mobile drawer content
   const drawerContent = (
     <Box sx={{ width: 250 }} role="presentation" onClick={toggleMobileDrawer}>
-      {isAuthenticated ? (
+      {authStatus === "authenticated" ? (
         <>
           <Box
             sx={{
@@ -112,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
             <Avatar sx={{ mb: 1, bgcolor: "primary.main" }}>
               <PersonIcon />
             </Avatar>
-            <Typography variant="subtitle1">User Name</Typography>
+            <Typography variant="subtitle1">{user?.name || "User"}</Typography>
           </Box>
           <Divider />
           <List>
@@ -169,12 +165,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
           <Typography variant="subtitle1" gutterBottom>
             Please log in to access your account
           </Typography>
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={() => redirectToLogin()}
-          >
+          <Button variant="contained" fullWidth sx={{ mt: 2 }} onClick={login}>
             Login
           </Button>
         </Box>
@@ -259,7 +250,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
             </Box>
 
             {/* Only show the user menu when authenticated */}
-            {isAuthenticated ? (
+            {authStatus === "authenticated" ? (
               <Box>
                 <Tooltip title="Account settings">
                   <IconButton
@@ -296,11 +287,7 @@ const Header: React.FC<HeaderProps> = ({ isAdmin, isAuthenticated }) => {
                 </Menu>
               </Box>
             ) : (
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => redirectToLogin()}
-              >
+              <Button variant="outlined" color="primary" onClick={login}>
                 Login
               </Button>
             )}
