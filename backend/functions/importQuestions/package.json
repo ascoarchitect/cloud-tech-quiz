@@ -1,12 +1,11 @@
-
 {
   "name": "importQuestions",
   "version": "1.0.0",
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.1692.0",
-    "uuid": "^8.3.2"
+    "@aws-sdk/client-dynamodb": "^3.511.0",
+    "@aws-sdk/lib-dynamodb": "^3.511.0",
+    "uuid": "^9.0.1"
   }
 }
-

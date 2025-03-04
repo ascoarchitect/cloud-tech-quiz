@@ -4,7 +4,6 @@
   "private": true,
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.1692.0",
-    "crypto": "^1.0.1"
+    "@aws-sdk/client-cognito-identity-provider": "^3.511.0"
   }
 }

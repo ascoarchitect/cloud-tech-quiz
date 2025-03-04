@@ -1,0 +1,29 @@
+{
+  "name": "cloud-skills-assessment-backend",
+  "version": "1.0.0",
+  "description": "Backend for Cloud Skills Assessment application",
+  "scripts": {
+    "test": "jest",
+    "deploy": "sam build && sam deploy --guided",
+    "deploy:dev": "sam build && sam deploy --stack-name cloud-assessment-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM",
+    "deploy:prod": "sam build && sam deploy --stack-name cloud-assessment-prod --parameter-overrides Environment=prod --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM",
+    "local": "sam local start-api",
+    "create-function-packages": "node ./scripts/create-function-packages.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.511.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.511.0",
+    "@aws-sdk/lib-dynamodb": "^3.511.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.5",
+    "eslint": "^8.56.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
