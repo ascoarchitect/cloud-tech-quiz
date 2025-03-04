@@ -508,7 +508,7 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
-            Path: /tests/{testId}/statistics
+            Path: /test-statistics/{id}
             Method: GET
 
   ValidateImportQuestionsFunction:

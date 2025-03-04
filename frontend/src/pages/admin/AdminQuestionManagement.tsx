@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from '@aws-amplify/api';
 import {
   Box,
   Typography,
@@ -51,8 +49,10 @@ import {
   createQuestion,
   updateQuestion,
   deleteQuestion,
-} from "../../graphql/mutations";
-import { listQuestions } from "../../graphql/queries";
+  listQuestions,
+  validateImportQuestions,
+  importQuestions,
+} from "../../services/api";
 import { QuestionType, OptionType } from "../../types";
 
 // Define difficulty options
@@ -77,7 +77,6 @@ const CATEGORY_OPTIONS = [
 ];
 
 const AdminQuestionManagement: React.FC = () => {
-    const client = generateClient();
   // State for question list
   const [questions, setQuestions] = useState<QuestionType[]>([]);
   const [filteredQuestions, setFilteredQuestions] = useState<QuestionType[]>(
@@ -153,14 +152,9 @@ const AdminQuestionManagement: React.FC = () => {
   const fetchQuestions = async () => {
     setLoading(true);
     try {
-      const result = await client.graphql({
-        query: listQuestions,
-        variables: { limit: 1000 }
-      }) as GraphQLResult<{
-        listQuestions: { items: QuestionType[] }
-      }>;
-  
-      const questionsData = result.data.listQuestions.items;
+      const result = await listQuestions({ limit: 1000 });
+
+      const questionsData = result.items;
       setQuestions(questionsData);
       setFilteredQuestions(questionsData);
       setLoading(false);
@@ -354,7 +348,7 @@ const AdminQuestionManagement: React.FC = () => {
   // Save question (create or update)
   const handleSaveQuestion = async () => {
     if (!validateQuestionForm()) return;
-  
+
     setLoading(true);
     try {
       const questionInput = {
@@ -366,36 +360,22 @@ const AdminQuestionManagement: React.FC = () => {
         difficulty: questionDifficulty,
         tags: questionTags,
       };
-  
+
       if (isEditing && currentQuestion) {
         // Update existing question
-        await client.graphql({
-          query: updateQuestion,
-          variables: {
-            input: {
-              id: currentQuestion.id,
-              ...questionInput,
-            },
-          },
-        }) as GraphQLResult<{
-          updateQuestion: QuestionType
-        }>;
-  
+        await updateQuestion({
+          id: currentQuestion.id,
+          ...questionInput,
+        });
+
         showSnackbar("Question updated successfully", "success");
       } else {
         // Create new question
-        await client.graphql({
-          query: createQuestion,
-          variables: {
-            input: questionInput,
-          },
-        }) as GraphQLResult<{
-          createQuestion: QuestionType
-        }>;
-  
+        await createQuestion(questionInput);
+
         showSnackbar("Question created successfully", "success");
       }
-  
+
       // Refresh questions list
       await fetchQuestions();
       setShowQuestionForm(false);
@@ -410,18 +390,11 @@ const AdminQuestionManagement: React.FC = () => {
   // Confirm and execute question deletion
   const confirmDeleteQuestion = async () => {
     if (!deleteQuestionId) return;
-  
+
     setDeleteLoading(true);
     try {
-      await client.graphql({
-        query: deleteQuestion,
-        variables: {
-          input: { id: deleteQuestionId },
-        },
-      }) as GraphQLResult<{
-        deleteQuestion: QuestionType
-      }>;
-  
+      await deleteQuestion(deleteQuestionId);
+
       // Refresh questions list
       await fetchQuestions();
       showSnackbar("Question deleted successfully", "success");
@@ -454,11 +427,11 @@ const AdminQuestionManagement: React.FC = () => {
   const validateImportJson = async () => {
     setImportLoading(true);
     setImportValidationResults(null);
-  
+
     try {
       // Parse JSON
       const parsedJson = JSON.parse(importJson);
-  
+
       // Validate structure
       if (!parsedJson.questions || !Array.isArray(parsedJson.questions)) {
         setImportValidationResults({
@@ -468,34 +441,17 @@ const AdminQuestionManagement: React.FC = () => {
         setImportLoading(false);
         return;
       }
-  
-      // Call the validate import Lambda function
-      const result = await client.graphql({
-        query: `
-        query ValidateImportQuestions($questions: [QuestionInput!]!) {
-          validateImportQuestions(questions: $questions) {
-            valid
-            errors
-          }
-        }
-      `,
-        variables: {
-          questions: parsedJson.questions,
-        },
-      }) as GraphQLResult<{
-        validateImportQuestions: {
-          valid: boolean;
-          errors: string[];
-        }
-      }>;
-  
-      setImportValidationResults(result.data.validateImportQuestions);
+
+      // Call validate import API
+      const result = await validateImportQuestions(parsedJson.questions);
+      setImportValidationResults(result);
     } catch (err) {
       console.error("Error validating import:", err);
       setImportValidationResults({
         valid: false,
         errors: [
-          "Failed to validate import: " + ((err as Error).message || "Unknown error"),
+          "Failed to validate import: " +
+            ((err as Error).message || "Unknown error"),
         ],
       });
     } finally {
@@ -506,43 +462,22 @@ const AdminQuestionManagement: React.FC = () => {
   // Execute import
   const executeImport = async () => {
     if (!importValidationResults?.valid) return;
-  
+
     setImportLoading(true);
     try {
       // Parse JSON
       const parsedJson = JSON.parse(importJson);
-  
-      // Call the import questions Lambda function
-      const result = await client.graphql({
-        query: `
-        query ImportQuestions($questions: [QuestionInput!]!) {
-          importQuestions(questions: $questions) {
-            success
-            importedCount
-            errors
-          }
-        }
-      `,
-        variables: {
-          questions: parsedJson.questions,
-        },
-      }) as GraphQLResult<{
-        importQuestions: {
-          success: boolean;
-          importedCount: number;
-          errors: string[];
-        }
-      }>;
-  
-      const importResult = result.data.importQuestions;
-  
+
+      // Call import questions API
+      const importResult = await importQuestions(parsedJson.questions);
+
       if (importResult.success) {
         showSnackbar(
           `Successfully imported ${importResult.importedCount} questions`,
           "success",
         );
         setShowImportDialog(false);
-  
+
         // Refresh questions list
         await fetchQuestions();
       } else {
@@ -555,7 +490,9 @@ const AdminQuestionManagement: React.FC = () => {
       console.error("Error importing questions:", err);
       setImportValidationResults({
         valid: false,
-        errors: ["Failed to import: " + ((err as Error).message || "Unknown error")],
+        errors: [
+          "Failed to import: " + ((err as Error).message || "Unknown error"),
+        ],
       });
     } finally {
       setImportLoading(false);

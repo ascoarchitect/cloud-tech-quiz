@@ -16,7 +16,7 @@ const dynamoDB = DynamoDBDocumentClient.from(client);
 exports.handler = async (event) => {
   try {
     // Get the test ID from path parameters
-    const testId = event.pathParameters.testId;
+    const testId = event.pathParameters.id;
 
     // Get test data to access question IDs
     const testResponse = await dynamoDB.send(

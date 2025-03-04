@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from '@aws-amplify/api';
 import {
   Box,
   Typography,
@@ -25,10 +23,8 @@ import {
   QuestionAnswer as QuestionIcon,
   CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
-import { listTests } from "../../graphql/queries";
+import { listTests } from "../../services/api";
 import { TestType } from "../../types";
-
-const client = generateClient();
 
 const AdminDashboard: React.FC = () => {
   const [tests, setTests] = useState<TestType[]>([]);
@@ -41,18 +37,9 @@ const AdminDashboard: React.FC = () => {
 
   const fetchTests = async () => {
     try {
-      const result = await client.graphql({
-        query: listTests,
-        variables: {
-          limit: 1000,
-        },
-      }) as GraphQLResult<{
-        listTests: { items: TestType[] }
-      }>;
-  
-      // Now TypeScript knows that data exists and has the expected structure
-      const testsData = result.data.listTests.items || [];
-  
+      const result = await listTests({ limit: 1000 });
+      const testsData = result.items || [];
+
       // Sort by creation date (newest first)
       testsData.sort((a, b) => {
         return (
@@ -60,7 +47,7 @@ const AdminDashboard: React.FC = () => {
           new Date(a.createdAt || "").getTime()
         );
       });
-  
+
       setTests(testsData);
       setLoading(false);
     } catch (err) {

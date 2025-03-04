@@ -6,6 +6,7 @@ set -e
 
 # Default environment
 ENVIRONMENT="dev"
+AUTHOR="ascoarchitect"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -22,7 +23,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Stack name based on environment
-STACK_NAME="cloud-assessment-$ENVIRONMENT"
+STACK_NAME="$AUTHOR-cloudquizapp-$ENVIRONMENT"
 
 # Build the SAM application
 echo "Building SAM application..."

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from "@aws-amplify/api";
 import {
   Box,
   Typography,
@@ -25,7 +23,7 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { getTest, getResponse } from "../graphql/queries";
+import { getTest, getResponse, getQuestion } from "../services/api";
 import { TestType, ResponseType, QuestionType } from "../types";
 
 // Register Chart.js components
@@ -37,8 +35,6 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
-
-const client = generateClient();
 
 const ResultsPage: React.FC = () => {
   const { testId, responseId } = useParams<{
@@ -67,15 +63,7 @@ const ResultsPage: React.FC = () => {
 
       try {
         // Fetch test data
-        const testResult = (await client.graphql({
-          query: getTest,
-          variables: { id: testId },
-        })) as GraphQLResult<{
-          getTest: TestType;
-        }>;
-
-        // Use optional chaining to safely access the data
-        const testData = testResult.data?.getTest;
+        const testData = await getTest(testId);
 
         if (!testData) {
           setError("Test not found");
@@ -86,14 +74,7 @@ const ResultsPage: React.FC = () => {
         setTest(testData);
 
         // Fetch response data
-        const responseResult = (await client.graphql({
-          query: getResponse,
-          variables: { id: responseId },
-        })) as GraphQLResult<{
-          getResponse: ResponseType;
-        }>;
-
-        const responseData = responseResult.data?.getResponse;
+        const responseData = await getResponse(responseId);
 
         if (!responseData) {
           setError("Response not found");
@@ -112,29 +93,8 @@ const ResultsPage: React.FC = () => {
           await Promise.all(
             responseData.answers.map(async (answer) => {
               try {
-                const qResult = (await client.graphql({
-                  query: `
-                      query GetQuestionDetails {
-                        getQuestion(id: "${answer.questionId}") {
-                          id
-                          text
-                          options {
-                            id
-                            text
-                          }
-                          correctAnswer
-                          explanation
-                          category
-                          difficulty
-                          tags
-                        }
-                      }
-                    `,
-                })) as GraphQLResult<{
-                  getQuestion: QuestionType;
-                }>;
+                const questionData = await getQuestion(answer.questionId);
 
-                const questionData = qResult.data?.getQuestion;
                 if (questionData) {
                   questionsMap[answer.questionId] = questionData;
 

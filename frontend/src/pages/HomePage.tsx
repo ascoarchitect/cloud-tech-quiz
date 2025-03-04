@@ -1,7 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from '@aws-amplify/api';
 import {
   Button,
   Card,
@@ -11,10 +9,7 @@ import {
   Container,
   Box,
 } from "@mui/material";
-import { getTest } from "../graphql/queries";
-import { TestType } from "../types";
-
-const client = generateClient();
+import { getTest } from "../services/api";
 
 const HomePage: React.FC = () => {
   const [testId, setTestId] = useState("");
@@ -32,27 +27,13 @@ const HomePage: React.FC = () => {
       setError("Please enter a Test ID");
       return;
     }
-  
+
     setLoading(true);
     setError("");
-  
+
     try {
-      const result = await client.graphql({
-        query: getTest,
-        variables: { id: testId },
-      }) as GraphQLResult<{
-        getTest: TestType
-      }>;
-  
-      // Now TypeScript knows that data exists and has the expected structure
-      const test = result.data?.getTest;
-  
-      if (!test) {
-        setError("Test not found. Please check the ID and try again.");
-        setLoading(false);
-        return;
-      }
-  
+      const test = await getTest(testId);
+
       if (!test.active) {
         setError("This test is no longer active.");
         setLoading(false);

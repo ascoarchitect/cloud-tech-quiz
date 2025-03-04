@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from "@aws-amplify/api";
 import {
   Box,
   Typography,
@@ -61,8 +59,13 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { getTest } from "../../graphql/queries";
-import { updateTest, deleteTest } from "../../graphql/mutations";
+import {
+  getTest,
+  updateTest,
+  deleteTest,
+  getTestStatistics,
+  listResponses,
+} from "../../services/api";
 import { TestType, ResponseType } from "../../types";
 
 // Register Chart.js components
@@ -98,7 +101,6 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const AdminTestManagement: React.FC = () => {
-  const client = generateClient();
   const { testId } = useParams<{ testId: string }>();
   const navigate = useNavigate();
 
@@ -158,14 +160,7 @@ const AdminTestManagement: React.FC = () => {
 
     try {
       // Fetch test details
-      const result = await client.graphql({
-        query: getTest,
-        variables: { id: testId }
-      }) as GraphQLResult<{
-        getTest: TestType
-      }>;
-      
-      const testData = result.data.getTest as TestType;
+      const testData = await getTest(testId!);
 
       if (!testData) {
         setError("Test not found");
@@ -209,30 +204,8 @@ const AdminTestManagement: React.FC = () => {
 
     setStatsLoading(true);
     try {
-        const result = await client.graphql({
-            query: `
-              query GetTestStatistics($testId: ID!) {
-                getTestStatistics(testId: $testId) {
-                  testId
-                  totalParticipants
-                  completedTests
-                  incompleteTests
-                  averageScore
-                  cheatingAttempts
-                  categoryStats {
-                    category
-                    averageScore
-                    questionCount
-                  }
-                }
-              }
-            `,
-            variables: { testId }
-          }) as GraphQLResult<{
-            getTestStatistics: any
-          }>;
-          
-          setStatistics(result.data.getTestStatistics);
+      const stats = await getTestStatistics(testId);
+      setStatistics(stats);
       setStatsLoading(false);
     } catch (err) {
       console.error("Error fetching test statistics:", err);
@@ -246,29 +219,12 @@ const AdminTestManagement: React.FC = () => {
 
     setResponsesLoading(true);
     try {
-        const result = await client.graphql({
-            query: `
-              query ListResponsesByTest {
-                listResponses(filter: { testId: { eq: "${testId}" } }, limit: 1000) {
-                  items {
-                    id
-                    userId
-                    userName
-                    startTime
-                    endTime
-                    score
-                    completed
-                    cheatingAttempts
-                    cheatingDetails
-                  }
-                }
-              }
-            `
-          }) as GraphQLResult<{
-            listResponses: { items: ResponseType[] }
-          }>;
-          
-          const responsesData = result.data.listResponses.items as ResponseType[];
+      const result = await listResponses({
+        filter: { testId: { eq: testId } },
+        limit: 1000,
+      });
+
+      const responsesData = result.items;
 
       // Sort by start time (newest first)
       responsesData.sort((a, b) => {
@@ -294,11 +250,11 @@ const AdminTestManagement: React.FC = () => {
       const updateInput = {
         id: test.id,
         name: editFormData.name,
-        description: editFormData.description || null,
+        description: editFormData.description || undefined, // Use undefined instead of null
         active: editFormData.active,
         closureDate: editFormData.closureDate
           ? new Date(editFormData.closureDate).toISOString()
-          : null,
+          : undefined, // Use undefined instead of null
         settings: {
           allowRetake: editFormData.allowRetake,
           randomizeQuestions: editFormData.randomizeQuestions,
@@ -307,12 +263,7 @@ const AdminTestManagement: React.FC = () => {
         },
       };
 
-      await client.graphql({
-        query: updateTest,
-        variables: { input: updateInput }
-      }) as GraphQLResult<{
-        updateTest: TestType
-      }>;
+      await updateTest(updateInput);
       // Refresh test data
       await fetchTestData();
       setShowEditDialog(false);
@@ -330,12 +281,7 @@ const AdminTestManagement: React.FC = () => {
 
     setLoading(true);
     try {
-        await client.graphql({
-            query: deleteTest,
-            variables: { input: { id: test.id } }
-          }) as GraphQLResult<{
-            deleteTest: TestType
-          }>;
+      await deleteTest(test.id);
 
       // Navigate back to admin dashboard
       navigate("/admin");
@@ -347,12 +293,12 @@ const AdminTestManagement: React.FC = () => {
   };
 
   // Handle tab change
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
   // Handle pagination change
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -698,17 +644,10 @@ const AdminTestManagement: React.FC = () => {
                 color={test.active ? "error" : "success"}
                 onClick={async () => {
                   try {
-                    await client.graphql({
-                        query: updateTest,
-                        variables: {
-                          input: {
-                            id: test.id,
-                            active: !test.active,
-                          },
-                        },
-                      }) as GraphQLResult<{
-                        updateTest: TestType
-                      }>;
+                    await updateTest({
+                      id: test.id,
+                      active: !test.active,
+                    });
                     fetchTestData();
                   } catch (err) {
                     console.error("Error toggling test status:", err);

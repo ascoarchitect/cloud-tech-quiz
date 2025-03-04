@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
-import { GraphQLResult } from "@aws-amplify/api";
-import { getCurrentUser } from "aws-amplify/auth";
+import { getCurrentUser } from "../services/auth";
 import {
   Box,
   Typography,
@@ -20,12 +18,14 @@ import {
   Alert,
   Snackbar,
 } from "@mui/material";
-import { getTest } from "../graphql/queries";
-import { createResponse, updateResponse } from "../graphql/mutations";
+import {
+  getTest,
+  getQuestion,
+  createResponse,
+  updateResponse,
+} from "../services/api";
 import { TestType, QuestionType, AnswerType } from "../types";
 import AntiCheatModule from "../utils/antiCheat";
-
-const client = generateClient();
 
 const TestPage: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
@@ -68,25 +68,20 @@ const TestPage: React.FC = () => {
 
       try {
         // Get current user
-        const userInfo = await getCurrentUser();
-        setUserId(userInfo.userId);
-        setUserName(userInfo.username);
-
-        // Fetch test data
-        const result = await client.graphql({
-            query: getTest,
-            variables: { id: testId },
-          }) as GraphQLResult<{
-            getTest: TestType;
-          }>;
-          
-          const testData = result.data?.getTest;
-
-        if (!testData) {
-          setError("Test not found");
+        const userSession = await getCurrentUser();
+        if (!userSession) {
+          setError("User authentication failed");
           setLoading(false);
           return;
         }
+
+        // Extract user info - note that we need to use the username from the session
+        // and can use it as the userId as well (or any unique identifier)
+        setUserId(userSession.getUsername());
+        setUserName(userSession.getUsername());
+
+        // Fetch test data
+        const testData = await getTest(testId);
 
         if (!testData.active) {
           setError("This test is no longer active");
@@ -111,49 +106,41 @@ const TestPage: React.FC = () => {
 
         // Fetch questions
         const questionPromises = testData.questions.map(async (questionId) => {
-            const qResult = await client.graphql({
-                query: `
-                  query GetQuestion {
-                    getQuestion(id: "${questionId}") {
-                      id
-                      text
-                      options {
-                        id
-                        text
-                      }
-                      category
-                      difficulty
-                      tags
-                    }
-                  }
-                `,
-              }) as GraphQLResult<{
-                getQuestion: QuestionType;
-              }>;
-              return qResult.data?.getQuestion;
+          try {
+            const question = await getQuestion(questionId);
+            return question;
+          } catch (err) {
+            console.error(`Error fetching question ${questionId}:`, err);
+            return null;
+          }
         });
 
-        let fetchedQuestions = await Promise.all(questionPromises);
-        // Filter out any undefined questions
-        fetchedQuestions = fetchedQuestions.filter((q) => q);
+        const fetchedQuestionsWithNulls = await Promise.all(questionPromises);
+
+        // Filter out any null questions and ensure type safety
+        const fetchedQuestions: QuestionType[] =
+          fetchedQuestionsWithNulls.filter(
+            (q): q is QuestionType => q !== null && q !== undefined,
+          );
 
         // Randomize questions if enabled in test settings
+        let processedQuestions = fetchedQuestions;
         if (testData.settings?.randomizeQuestions) {
-          fetchedQuestions = shuffleArray([...fetchedQuestions]);
+          processedQuestions = shuffleArray([...processedQuestions]);
         }
 
         // Randomize options for each question if enabled
         if (testData.settings?.randomizeOptions) {
-          fetchedQuestions = fetchedQuestions.map((q: QuestionType) => ({
+          processedQuestions = processedQuestions.map((q) => ({
             ...q,
             options: shuffleArray([...q.options]),
           }));
         }
 
-        setQuestions(fetchedQuestions);
+        setQuestions(processedQuestions);
 
         // Initialize empty answers array
-        const initialAnswers = fetchedQuestions.map((q: QuestionType) => ({
+        const initialAnswers = processedQuestions.map((q) => ({
           questionId: q.id,
           selectedOption: "",
           correct: false,
@@ -196,25 +183,17 @@ const TestPage: React.FC = () => {
 
     try {
       // Create initial response record
-      const result = await client.graphql({
-        query: createResponse,
-        variables: {
-          input: {
-            testId,
-            userId,
-            userName,
-            startTime: new Date().toISOString(),
-            answers: [],
-            completed: false,
-            cheatingAttempts: 0,
-            cheatingDetails: [],
-          },
-        },
-      }) as GraphQLResult<{
-        createResponse: any;
-      }>;
-      
-      const responseData = result.data?.createResponse;
+      const responseData = await createResponse({
+        testId: testId!,
+        userId,
+        userName,
+        startTime: new Date().toISOString(),
+        answers: [],
+        completed: false,
+        cheatingAttempts: 0,
+        cheatingDetails: [],
+      });
+
       if (responseData && responseData.id) {
         setResponseId(responseData.id);
         setTestStarted(true);
@@ -248,17 +227,12 @@ const TestPage: React.FC = () => {
 
     try {
       // Update response with cheating details
-      await client.graphql({
-        query: updateResponse,
-        variables: {
-          input: {
-            id: responseId,
-            cheatingAttempts: 1,
-            cheatingDetails: [reason],
-            completed: true,
-            endTime: new Date().toISOString(),
-          },
-        },
+      await updateResponse({
+        id: responseId,
+        cheatingAttempts: 1,
+        cheatingDetails: [reason],
+        completed: true,
+        endTime: new Date().toISOString(),
       });
 
       // Stop anti-cheat monitoring
@@ -327,14 +301,9 @@ const TestPage: React.FC = () => {
     if (!responseId) return;
 
     try {
-      await client.graphql({
-        query: updateResponse,
-        variables: {
-          input: {
-            id: responseId,
-            answers: answers,
-          },
-        },
+      await updateResponse({
+        id: responseId,
+        answers: answers,
       });
     } catch (err) {
       console.error("Error saving progress:", err);
@@ -362,19 +331,9 @@ const TestPage: React.FC = () => {
 
           try {
             // Fetch the correct answer
-            const qResult = await client.graphql({
-                query: `
-                  query GetQuestionAnswer {
-                    getQuestion(id: "${answer.questionId}") {
-                      correctAnswer
-                    }
-                  }
-                `,
-              }) as GraphQLResult<{
-                getQuestion: { correctAnswer: string };
-              }>;
-              
-              const correctAnswer = qResult.data?.getQuestion?.correctAnswer;
+            const question = await getQuestion(answer.questionId);
+            const correctAnswer = question.correctAnswer;
+
             if (!correctAnswer) return answer;
 
             return {
@@ -403,17 +362,12 @@ const TestPage: React.FC = () => {
           : 0;
 
       // Update response with final data
-      await client.graphql({
-        query: updateResponse,
-        variables: {
-          input: {
-            id: responseId,
-            answers: answersWithCorrectness,
-            score,
-            completed: true,
-            endTime: new Date().toISOString(),
-          },
-        },
+      await updateResponse({
+        id: responseId,
+        answers: answersWithCorrectness,
+        score,
+        completed: true,
+        endTime: new Date().toISOString(),
       });
 
       // Stop anti-cheat monitoring

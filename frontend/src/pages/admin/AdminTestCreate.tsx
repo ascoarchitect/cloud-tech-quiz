@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateClient } from "aws-amplify/api";
+import { v4 as uuidv4 } from "uuid";
 import {
   Box,
   Typography,
@@ -29,9 +29,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { v4 as uuidv4 } from "uuid";
-import { createTest } from "../../graphql/mutations";
-import { listQuestions } from "../../graphql/queries";
+import { createTest, listQuestions, getQuestion } from "../../services/api";
 import { QuestionType } from "../../types";
 
 // Define difficulty options
@@ -57,7 +55,7 @@ const CATEGORY_OPTIONS = [
 
 const AdminTestCreate: React.FC = () => {
   const navigate = useNavigate();
-  const client = generateClient();
+
   // Basic test information
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -140,14 +138,11 @@ const AdminTestCreate: React.FC = () => {
   const fetchQuestions = async () => {
     setQuestionsLoading(true);
     try {
-      const result: any = await client.graphql({
-        query: listQuestions,
-        variables: {
-          limit: 1000,
-        },
+      const result = await listQuestions({
+        limit: 1000,
       });
 
-      const questionsData = result.data.listQuestions.items;
+      const questionsData = result.items;
       setAvailableQuestions(questionsData);
       setFilteredQuestions(questionsData);
       setQuestionsLoading(false);
@@ -348,10 +343,7 @@ const AdminTestCreate: React.FC = () => {
         },
       };
 
-      await client.graphql({
-        query: createTest,
-        variables: { input: testInput },
-      });
+      await createTest(testInput);
 
       setSuccess(true);
       setTestCreated({
