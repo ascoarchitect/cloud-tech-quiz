@@ -1,0 +1,11 @@
+
+{
+  "name": "getTest",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.1692.0"
+  }
+}
+

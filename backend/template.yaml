@@ -1,0 +1,637 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cloud Skills Assessment Backend
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        QUESTION_TABLE: !Ref QuestionTable
+        TEST_TABLE: !Ref TestTable
+        RESPONSE_TABLE: !Ref ResponseTable
+        USER_POOL_ID: !Ref UserPool
+        USER_POOL_CLIENT_ID: !Ref UserPoolClient
+        IDENTITY_POOL_ID: !Ref IdentityPool
+        ENVIRONMENT: !Ref Environment
+
+Resources:
+  # DynamoDB Tables
+  QuestionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloud-assessment-questions-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: difficulty
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byCategory
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: byDifficulty
+          KeySchema:
+            - AttributeName: difficulty
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  TestTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloud-assessment-tests-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: active
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byActive
+          KeySchema:
+            - AttributeName: active
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ResponseTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub cloud-assessment-responses-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: testId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: byTest
+          KeySchema:
+            - AttributeName: testId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: byUser
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub cloud-assessment-userpool-${Environment}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: name
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      MfaConfiguration: "OFF"
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+
+  # Cognito User Pool Client
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub cloud-assessment-client-${Environment}
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        RefreshToken: days
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AllowedOAuthFlows:
+        - implicit
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      CallbackURLs:
+        - http://localhost:3000
+        - !Sub https://${CloudFrontDistribution.DomainName}
+      LogoutURLs:
+        - http://localhost:3000
+        - !Sub https://${CloudFrontDistribution.DomainName}
+      SupportedIdentityProviders:
+        - COGNITO
+      PreventUserExistenceErrors: ENABLED
+
+  # Cognito User Pool Domain
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub cloud-assessment-${Environment}-${AWS::AccountId}
+      UserPoolId: !Ref UserPool
+
+  # Cognito Identity Pool
+  IdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub cloud-assessment-identity-pool-${Environment}
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref UserPoolClient
+          ProviderName: !Sub cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+
+  # IAM Role for Authenticated Users
+  AuthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref IdentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: authenticated
+      Policies:
+        - PolicyName: !Sub authenticated-policy-${Environment}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - mobileanalytics:PutEvents
+                  - cognito-sync:*
+                Resource: '*'
+
+  # Identity Pool Role Attachment
+  IdentityPoolRoleAttachment:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref IdentityPool
+      Roles:
+        authenticated: !GetAtt AuthenticatedRole.Arn
+
+  # Cognito User Group for Admins
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: Admin
+      UserPoolId: !Ref UserPool
+      Description: Administrator group with full access
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+      Cors:
+        AllowMethods: "'GET, POST, PUT, DELETE, OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # Question API Functions
+  GetQuestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/getQuestion/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        GetQuestionApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions/{id}
+            Method: GET
+
+  ListQuestionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/listQuestions/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        ListQuestionsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions
+            Method: GET
+
+  CreateQuestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/createQuestion/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        CreateQuestionApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions
+            Method: POST
+
+  UpdateQuestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/updateQuestion/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        UpdateQuestionApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions/{id}
+            Method: PUT
+
+  DeleteQuestionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/deleteQuestion/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        DeleteQuestionApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions/{id}
+            Method: DELETE
+
+  # Test API Functions
+  GetTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/getTest/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TestTable
+      Events:
+        GetTestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests/{id}
+            Method: GET
+
+  ListTestsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/listTests/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TestTable
+      Events:
+        ListTestsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests
+            Method: GET
+
+  CreateTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/createTest/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestTable
+      Events:
+        CreateTestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests
+            Method: POST
+
+  UpdateTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/updateTest/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestTable
+      Events:
+        UpdateTestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests/{id}
+            Method: PUT
+
+  DeleteTestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/deleteTest/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TestTable
+      Events:
+        DeleteTestApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests/{id}
+            Method: DELETE
+
+  # Response API Functions
+  GetResponseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/getResponse/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ResponseTable
+      Events:
+        GetResponseApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /responses/{id}
+            Method: GET
+
+  ListResponsesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/listResponses/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ResponseTable
+      Events:
+        ListResponsesApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /responses
+            Method: GET
+
+  CreateResponseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/createResponse/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResponseTable
+      Events:
+        CreateResponseApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /responses
+            Method: POST
+
+  UpdateResponseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/updateResponse/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResponseTable
+      Events:
+        UpdateResponseApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /responses/{id}
+            Method: PUT
+
+  DeleteResponseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/deleteResponse/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResponseTable
+      Events:
+        DeleteResponseApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /responses/{id}
+            Method: DELETE
+
+  # Custom Query Functions
+  GetTestStatisticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/getTestStatistics/
+      Handler: index.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref TestTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ResponseTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        GetTestStatisticsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /tests/{testId}/statistics
+            Method: GET
+
+  ValidateImportQuestionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/validateImportQuestions/
+      Handler: index.handler
+      Events:
+        ValidateImportQuestionsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions/validate-import
+            Method: POST
+
+  ImportQuestionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/importQuestions/
+      Handler: index.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref QuestionTable
+      Events:
+        ImportQuestionsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /questions/import
+            Method: POST
+
+  # Frontend hosting
+  WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub cloud-assessment-frontend-${Environment}
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebsiteBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub arn:aws:s3:::${WebsiteBucket}/*
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          TargetOriginId: S3Origin
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          ViewerProtocolPolicy: redirect-to-https
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  
+  WebsiteURL:
+    Description: URL for the S3 website
+    Value: !GetAtt WebsiteBucket.WebsiteURL
+  
+  CloudFrontURL:
+    Description: CloudFront URL for the website
+    Value: !Sub https://${CloudFrontDistribution.DomainName}
+  
+  QuestionTableName:
+    Description: Question table name
+    Value: !Ref QuestionTable
+  
+  TestTableName:
+    Description: Test table name
+    Value: !Ref TestTable
+  
+  ResponseTableName:
+    Description: Response table name
+    Value: !Ref ResponseTable
+  
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+  
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+  
+  IdentityPoolId:
+    Description: Cognito Identity Pool ID
+    Value: !Ref IdentityPool
+  
+  CognitoDomainName:
+    Description: Cognito Domain Name
+    Value: !Sub https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com

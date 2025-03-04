@@ -1,8 +1,0 @@
-{
-    "name": "validateQuestions",
-    "version": "1.0.0",
-    "description": "Validate questions function",
-    "main": "index.js",
-    "dependencies": {}
-  }
-  
