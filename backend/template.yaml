@@ -7,12 +7,17 @@ Parameters:
     Type: String
     Default: dev
     Description: Environment name
+  Author:
+    Type: String
+    Default: ascoarchitect
+    Description: Author name
 
 Globals:
   Function:
     Timeout: 30
     MemorySize: 256
-    Runtime: nodejs22.x
+    Runtime: nodejs20.x
+    Architectures: [arm64]
     Environment:
       Variables:
         QUESTION_TABLE: !Ref QuestionTable
@@ -28,7 +33,7 @@ Resources:
   QuestionTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub cloud-assessment-questions-${Environment}
+      TableName: !Sub ${Author}cloudquizapp-questions-${Environment}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -57,7 +62,7 @@ Resources:
   TestTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub cloud-assessment-tests-${Environment}
+      TableName: !Sub ${Author}cloudquizapp-tests-${Environment}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -78,7 +83,7 @@ Resources:
   ResponseTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub cloud-assessment-responses-${Environment}
+      TableName: !Sub ${Author}cloudquizapp-responses-${Environment}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: id
@@ -108,7 +113,7 @@ Resources:
   UserPool:
     Type: AWS::Cognito::UserPool
     Properties:
-      UserPoolName: !Sub cloud-assessment-userpool-${Environment}
+      UserPoolName: !Sub ${Author}cloudquizapp-userpool-${Environment}
       AutoVerifiedAttributes:
         - email
       UsernameAttributes:
@@ -140,7 +145,7 @@ Resources:
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
-      ClientName: !Sub cloud-assessment-client-${Environment}
+      ClientName: !Sub ${Author}cloudquizapp-client-${Environment}
       UserPoolId: !Ref UserPool
       GenerateSecret: false
       RefreshTokenValidity: 30
@@ -171,14 +176,14 @@ Resources:
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Sub cloud-assessment-${Environment}-${AWS::AccountId}
+      Domain: !Sub ${Author}cloudquizapp-${Environment}-${AWS::AccountId}
       UserPoolId: !Ref UserPool
 
   # Cognito Identity Pool
   IdentityPool:
     Type: AWS::Cognito::IdentityPool
     Properties:
-      IdentityPoolName: !Sub cloud-assessment-identity-pool-${Environment}
+      IdentityPoolName: !Sub ${Author}cloudquizapp-identity-pool-${Environment}
       AllowUnauthenticatedIdentities: false
       CognitoIdentityProviders:
         - ClientId: !Ref UserPoolClient
@@ -539,10 +544,8 @@ Resources:
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub cloud-assessment-frontend-${Environment}
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
+      BucketName: !Sub ${Author}cloudquizapp-frontend-${Environment}
+      # Remove WebsiteConfiguration as we'll serve through CloudFront
       CorsConfiguration:
         CorsRules:
           - AllowedHeaders: ["*"]
@@ -550,6 +553,14 @@ Resources:
             AllowedOrigins: ["*"]
             MaxAge: 3000
 
+  # CloudFront Origin Access Identity
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "OAI for ${Environment} environment"
+
+  # S3 bucket policy that allows CloudFront access
   WebsiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -557,7 +568,8 @@ Resources:
       PolicyDocument:
         Statement:
           - Effect: Allow
-            Principal: "*"
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
             Action: s3:GetObject
             Resource: !Sub arn:aws:s3:::${WebsiteBucket}/*
 
@@ -569,7 +581,7 @@ Resources:
           - DomainName: !GetAtt WebsiteBucket.RegionalDomainName
             Id: S3Origin
             S3OriginConfig:
-              OriginAccessIdentity: ""
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOAI}
         Enabled: true
         DefaultRootObject: index.html
         HttpVersion: http2

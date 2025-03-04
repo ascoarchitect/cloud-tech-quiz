@@ -34,6 +34,7 @@ sam deploy \
   --stack-name $STACK_NAME \
   --parameter-overrides Environment=$ENVIRONMENT \
   --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+  --resolve-s3 \
   --no-confirm-changeset
 
 echo "Backend deployment complete!"
