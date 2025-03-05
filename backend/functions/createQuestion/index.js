@@ -2,6 +2,12 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const { v4: uuidv4 } = require("uuid");
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://djvreacd6aujl.cloudfront.net',
+  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Credentials': 'true'
+};
 
 // Initialize clients
 const client = new DynamoDBClient({});
@@ -19,10 +25,7 @@ exports.handler = async (event) => {
     if (!requestBody.text) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Question text is required" }),
       };
     }
@@ -34,10 +37,7 @@ exports.handler = async (event) => {
     ) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "At least two options are required" }),
       };
     }
@@ -45,10 +45,7 @@ exports.handler = async (event) => {
     if (!requestBody.correctAnswer) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Correct answer is required" }),
       };
     }
@@ -56,10 +53,7 @@ exports.handler = async (event) => {
     if (!requestBody.explanation) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Explanation is required" }),
       };
     }
@@ -67,10 +61,7 @@ exports.handler = async (event) => {
     if (!requestBody.category) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Category is required" }),
       };
     }
@@ -78,10 +69,7 @@ exports.handler = async (event) => {
     if (!requestBody.difficulty) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Difficulty is required" }),
       };
     }

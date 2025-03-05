@@ -2,6 +2,12 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 const { v4: uuidv4 } = require("uuid");
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://djvreacd6aujl.cloudfront.net',
+  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Credentials': 'true'
+};
 
 // Initialize clients
 const client = new DynamoDBClient({});
@@ -19,10 +25,7 @@ exports.handler = async (event) => {
     if (!requestBody.testId) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Test ID is required" }),
       };
     }
@@ -30,10 +33,7 @@ exports.handler = async (event) => {
     if (!requestBody.userId) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "User ID is required" }),
       };
     }
@@ -41,10 +41,7 @@ exports.handler = async (event) => {
     if (!requestBody.userName) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "User name is required" }),
       };
     }
@@ -52,10 +49,7 @@ exports.handler = async (event) => {
     if (!requestBody.startTime) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ message: "Start time is required" }),
       };
     }
