@@ -84,7 +84,10 @@ exports.handler = async (event) => {
       numQuestions: requestBody.numQuestions,
       difficulty: requestBody.difficulty,
       categories: requestBody.categories,
-      active: requestBody.active !== undefined ? requestBody.active : true,
+      // Store 'active' as a string instead of boolean to match the GSI definition
+      active: requestBody.active !== undefined 
+        ? (requestBody.active ? "true" : "false") 
+        : "true",
       closureDate: requestBody.closureDate || null,
       questions: requestBody.questions || [],
       settings: {
