@@ -10,14 +10,27 @@
 // Event callback types
 type CheatDetectionCallback = (reason: string) => void;
 type WarningCallback = (reason: string) => void;
+type DisqualificationCallback = (reason: string) => void;
+
+interface AntiCheatOptions {
+  maxWarnings?: number;
+  maxFocusChanges?: number;
+  maxTimeAwayMs?: number;
+  disqualifyAfterDetection?: boolean;
+}
 
 class AntiCheatModule {
   private detectionCallback: CheatDetectionCallback;
   private warningCallback: WarningCallback;
+  private disqualificationCallback: DisqualificationCallback;
   private warningCount: number = 0;
   private maxWarnings: number = 2; // Number of warnings before triggering cheat detection
   private lastFocusTime: number = 0;
   private focusChangeCount: number = 0;
+  private maxFocusChanges: number = 3; // Maximum number of tab switches allowed
+  private maxTimeAwayMs: number = 10000; // Maximum time away in milliseconds (10 seconds)
+  private disqualifyAfterDetection: boolean = true; // Whether to auto-disqualify after cheat detection
+  private isDisqualified: boolean = false;
   private eventListeners: Array<{
     target: EventTarget;
     type: string;
@@ -27,13 +40,22 @@ class AntiCheatModule {
   constructor(
     detectionCallback: CheatDetectionCallback,
     warningCallback: WarningCallback,
-    options?: { maxWarnings?: number },
+    disqualificationCallback: DisqualificationCallback,
+    options?: AntiCheatOptions,
   ) {
     this.detectionCallback = detectionCallback;
     this.warningCallback = warningCallback;
+    this.disqualificationCallback = disqualificationCallback;
 
-    if (options?.maxWarnings) {
-      this.maxWarnings = options.maxWarnings;
+    if (options) {
+      if (options.maxWarnings !== undefined)
+        this.maxWarnings = options.maxWarnings;
+      if (options.maxFocusChanges !== undefined)
+        this.maxFocusChanges = options.maxFocusChanges;
+      if (options.maxTimeAwayMs !== undefined)
+        this.maxTimeAwayMs = options.maxTimeAwayMs;
+      if (options.disqualifyAfterDetection !== undefined)
+        this.disqualifyAfterDetection = options.disqualifyAfterDetection;
     }
 
     this.lastFocusTime = Date.now();
@@ -86,6 +108,13 @@ class AntiCheatModule {
   }
 
   /**
+   * Check if the user has been disqualified
+   */
+  public isUserDisqualified(): boolean {
+    return this.isDisqualified;
+  }
+
+  /**
    * Add an event handler and track it for later cleanup
    */
   private addEventHandler(
@@ -102,6 +131,8 @@ class AntiCheatModule {
    * Handle window focus changes (detecting if user switches tabs/windows)
    */
   private handleFocusChange(event: Event): void {
+    if (this.isDisqualified) return;
+
     const currentTime = Date.now();
 
     if (event.type === "blur") {
@@ -109,20 +140,35 @@ class AntiCheatModule {
       this.lastFocusTime = currentTime;
       this.focusChangeCount++;
 
-      if (this.focusChangeCount > 3) {
+      if (this.focusChangeCount > this.maxFocusChanges) {
         this.triggerWarning(
           "Multiple tab switches detected. Please stay in the test window.",
         );
+
+        // Auto-disqualify for excessive tab switching
+        if (this.focusChangeCount > this.maxFocusChanges * 2) {
+          this.triggerDisqualification(
+            "Test terminated due to excessive tab/window switching.",
+          );
+        }
       }
     } else if (event.type === "focus") {
       // User has returned to the test
       const timeAway = currentTime - this.lastFocusTime;
 
-      // If they were away for more than 10 seconds, it's suspicious
-      if (timeAway > 10000 && this.lastFocusTime > 0) {
+      // If they were away for more than the allowed time, it's suspicious
+      if (timeAway > this.maxTimeAwayMs && this.lastFocusTime > 0) {
+        const secondsAway = Math.round(timeAway / 1000);
         this.triggerWarning(
-          `Test window was inactive for ${Math.round(timeAway / 1000)} seconds.`,
+          `Test window was inactive for ${secondsAway} seconds.`,
         );
+
+        // Auto-disqualify for being away too long (likely searching for answers)
+        if (timeAway > this.maxTimeAwayMs * 3) {
+          this.triggerDisqualification(
+            `Test terminated due to extended absence (${secondsAway} seconds).`,
+          );
+        }
       }
     }
   }
@@ -131,6 +177,8 @@ class AntiCheatModule {
    * Prevent copy/paste operations
    */
   private preventCopyPaste(event: Event): void {
+    if (this.isDisqualified) return;
+
     event.preventDefault();
     this.triggerWarning(
       "Copy/paste operations are not allowed during the test.",
@@ -141,6 +189,8 @@ class AntiCheatModule {
    * Prevent context menu (right-click)
    */
   private preventContextMenu(event: Event): void {
+    if (this.isDisqualified) return;
+
     event.preventDefault();
     this.triggerWarning("Right-clicking is disabled during the test.");
   }
@@ -149,6 +199,8 @@ class AntiCheatModule {
    * Handle print attempts
    */
   private handlePrintAttempt(_: Event): void {
+    if (this.isDisqualified) return;
+
     this.triggerWarning("Printing is not allowed during the test.");
   }
 
@@ -162,6 +214,8 @@ class AntiCheatModule {
     let windowHeight = window.innerHeight;
 
     this.addEventHandler(window, "resize", () => {
+      if (this.isDisqualified) return;
+
       const widthChange = Math.abs(windowWidth - window.innerWidth);
       const heightChange = Math.abs(windowHeight - window.innerHeight);
 
@@ -179,6 +233,8 @@ class AntiCheatModule {
    * Trigger a warning to the user
    */
   private triggerWarning(reason: string): void {
+    if (this.isDisqualified) return;
+
     this.warningCallback(reason);
     this.warningCount++;
 
@@ -191,7 +247,33 @@ class AntiCheatModule {
    * Trigger the cheat detection callback
    */
   private triggerCheatDetection(reason: string): void {
+    if (this.isDisqualified) return;
+
     this.detectionCallback(reason);
+
+    if (this.disqualifyAfterDetection) {
+      this.triggerDisqualification(
+        `Test terminated due to suspicious activity: ${reason}`,
+      );
+    }
+  }
+
+  /**
+   * Trigger disqualification and end the test
+   */
+  private triggerDisqualification(reason: string): void {
+    if (this.isDisqualified) return;
+
+    this.isDisqualified = true;
+    this.disqualificationCallback(reason);
+
+    // Optionally store disqualification in local storage as a backup
+    try {
+      localStorage.setItem("testDisqualified", "true");
+      localStorage.setItem("disqualificationReason", reason);
+    } catch (e) {
+      // Ignore storage errors
+    }
   }
 }
 

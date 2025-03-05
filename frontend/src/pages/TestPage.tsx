@@ -48,14 +48,33 @@ const TestPage: React.FC = () => {
   const [remainingTime, setRemainingTime] = useState(0);
   const [testStarted, setTestStarted] = useState(false);
 
-  // UI state
+  // State for UI
   const [selectedOption, setSelectedOption] = useState("");
   const [confirmEndDialog, setConfirmEndDialog] = useState(false);
   const [warning, setWarning] = useState("");
 
+  // Disqualification state
+  const [isDisqualified, setIsDisqualified] = useState(false);
+  const [disqualificationReason, setDisqualificationReason] = useState("");
+
   // Anti-cheat reference
   const antiCheatRef = useRef<AntiCheatModule | null>(null);
   const questionStartTimeRef = useRef<number>(0);
+
+  // Check for disqualification on load and on refresh
+  useEffect(() => {
+    try {
+      const storedDisqualified = localStorage.getItem("testDisqualified");
+      const storedReason = localStorage.getItem("disqualificationReason");
+
+      if (storedDisqualified === "true" && storedReason) {
+        setIsDisqualified(true);
+        setDisqualificationReason(storedReason);
+      }
+    } catch (e) {
+      // Ignore storage errors
+    }
+  }, []);
 
   // Fetch test data and setup
   useEffect(() => {
@@ -161,7 +180,7 @@ const TestPage: React.FC = () => {
 
   // Timer
   useEffect(() => {
-    if (!testStarted || !test || remainingTime <= 0) return;
+    if (!testStarted || !test || remainingTime <= 0 || isDisqualified) return;
 
     const timer = setInterval(() => {
       setRemainingTime((prev) => {
@@ -175,11 +194,11 @@ const TestPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [testStarted, remainingTime]);
+  }, [testStarted, remainingTime, isDisqualified]);
 
   // Start the test
   const startTest = async () => {
-    if (!test || !userId) return;
+    if (!test || !userId || isDisqualified) return;
 
     try {
       // Create initial response record
@@ -203,7 +222,13 @@ const TestPage: React.FC = () => {
         antiCheatRef.current = new AntiCheatModule(
           handleCheatDetection,
           handleCheatWarning,
-          { maxWarnings: 3 },
+          handleDisqualification,
+          {
+            maxWarnings: 3,
+            maxFocusChanges: 3,
+            maxTimeAwayMs: 15000, // 15 seconds
+            disqualifyAfterDetection: true,
+          },
         );
 
         antiCheatRef.current.start();
@@ -231,6 +256,31 @@ const TestPage: React.FC = () => {
         id: responseId,
         cheatingAttempts: 1,
         cheatingDetails: [reason],
+      });
+    } catch (err) {
+      console.error("Error handling cheat detection:", err);
+    }
+  };
+
+  // Handle disqualification
+  const handleDisqualification = async (reason: string) => {
+    if (!responseId || isDisqualified) return;
+
+    try {
+      // Immediately set disqualification state to prevent further interaction
+      setIsDisqualified(true);
+      setDisqualificationReason(reason);
+
+      // Store disqualification in local storage as a backup
+      localStorage.setItem("testDisqualified", "true");
+      localStorage.setItem("disqualificationReason", reason);
+
+      // Update response with disqualification details - using only properties
+      // that exist in the API according to the type definition
+      await updateResponse({
+        id: responseId,
+        cheatingAttempts: 1, // Set cheating attempts counter
+        cheatingDetails: [reason],
         completed: true,
         endTime: new Date().toISOString(),
       });
@@ -240,15 +290,21 @@ const TestPage: React.FC = () => {
         antiCheatRef.current.stop();
       }
 
-      // Navigate to results
-      navigate(`/test/${testId}/results/${responseId}`);
+      // Close any open dialogs
+      setConfirmEndDialog(false);
+      setWarning("");
+
+      // No need to show the dialog - the component will re-render with the disqualification screen
+      // because isDisqualified is now true
     } catch (err) {
-      console.error("Error handling cheat detection:", err);
+      console.error("Error handling disqualification:", err);
     }
   };
 
   // Handle option selection
   const handleOptionSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (isDisqualified) return;
+
     setSelectedOption(event.target.value);
 
     // Update the answer for the current question
@@ -268,6 +324,8 @@ const TestPage: React.FC = () => {
 
   // Navigate to next question
   const nextQuestion = async () => {
+    if (isDisqualified) return;
+
     if (currentQuestionIndex < questions.length - 1) {
       // Save progress
       await saveProgress();
@@ -283,6 +341,8 @@ const TestPage: React.FC = () => {
 
   // Navigate to previous question
   const prevQuestion = async () => {
+    if (isDisqualified) return;
+
     if (currentQuestionIndex > 0) {
       // Save progress
       await saveProgress();
@@ -298,7 +358,7 @@ const TestPage: React.FC = () => {
 
   // Save current progress
   const saveProgress = async () => {
-    if (!responseId) return;
+    if (!responseId || isDisqualified) return;
 
     try {
       await updateResponse({
@@ -312,7 +372,7 @@ const TestPage: React.FC = () => {
 
   // End the test
   const endTest = async (_isTimeOut: boolean = false) => {
-    if (!responseId || !test) return;
+    if (!responseId || !test || isDisqualified) return;
 
     // Record time spent on final question
     const updatedAnswers = [...answers];
@@ -382,6 +442,24 @@ const TestPage: React.FC = () => {
     }
   };
 
+  // Handle going to results after disqualification
+  const handleGoToResults = async () => {
+    if (!responseId) {
+      navigate("/");
+      return;
+    }
+
+    try {
+      // Navigate to results with disqualification flag
+      // We'll use a query parameter to indicate disqualification
+      // The ResultsPage can read this and display appropriate messaging
+      navigate(`/test/${testId}/results/${responseId}?status=disqualified`);
+    } catch (err) {
+      console.error("Error navigating to results:", err);
+      navigate("/");
+    }
+  };
+
   // Format remaining time
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -398,6 +476,44 @@ const TestPage: React.FC = () => {
     }
     return newArray;
   };
+
+  // Disqualification screen
+  // This is now rendered BEFORE any other content when isDisqualified is true
+  if (isDisqualified) {
+    return (
+      <Box sx={{ p: 3, textAlign: "center", maxWidth: 800, mx: "auto" }}>
+        <Paper sx={{ p: 4, mb: 3, bgcolor: "#ffebee" }}>
+          <Typography variant="h4" color="error" gutterBottom>
+            Test Terminated
+          </Typography>
+
+          <Typography variant="h6" sx={{ mb: 3 }}>
+            {disqualificationReason ||
+              "Your test session has been terminated due to suspicious activity."}
+          </Typography>
+
+          <Typography sx={{ mb: 3 }}>
+            This attempt has been recorded as disqualified. If you believe this
+            is an error, please contact your test administrator.
+          </Typography>
+
+          <Box sx={{ mt: 4 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleGoToResults}
+              sx={{ mr: 2 }}
+            >
+              View Results
+            </Button>
+            <Button variant="outlined" onClick={() => navigate("/")}>
+              Return to Home
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
 
   // Handle errors and loading state
   if (loading) {
@@ -468,9 +584,13 @@ const TestPage: React.FC = () => {
             <Typography>
               • You cannot copy or paste content during the test
             </Typography>
-            <Typography>
-              • Navigating away from the test window may result in
+            <Typography sx={{ fontWeight: "bold", color: "error.main" }}>
+              • Navigating away from the test window may result in immediate
               disqualification
+            </Typography>
+            <Typography sx={{ fontWeight: "bold", color: "error.main" }}>
+              • Using browser developer tools or other cheating methods will
+              terminate your test
             </Typography>
 
             {!test.settings?.allowRetake && (
@@ -617,6 +737,8 @@ const TestPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Disqualification dialog - removed since we now immediately render the disqualification screen */}
 
       {/* Warning snackbar */}
       <Snackbar

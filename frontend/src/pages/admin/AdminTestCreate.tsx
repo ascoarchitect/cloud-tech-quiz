@@ -31,27 +31,10 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import { createTest, listQuestions, getQuestion } from "../../services/api";
 import { QuestionType } from "../../types";
-
-// Define difficulty options
-const DIFFICULTY_OPTIONS = ["CP", "SAA", "DEV", "OPS", "PRO"];
-
-// Define category options based on AWS exam categories
-const CATEGORY_OPTIONS = [
-  "Compute",
-  "Storage",
-  "Database",
-  "Networking",
-  "Security",
-  "Disaster Recovery & Resilience",
-  "Cost Optimization",
-  "Application Integration",
-  "Serverless",
-  "Migration",
-  "Machine Learning",
-  "IAM",
-  "Containers",
-  "Monitoring",
-];
+import {
+  CATEGORY_OPTIONS,
+  DIFFICULTY_OPTIONS,
+} from "../../constants/constants";
 
 const AdminTestCreate: React.FC = () => {
   const navigate = useNavigate();
@@ -333,7 +316,9 @@ const AdminTestCreate: React.FC = () => {
         difficulty: selectedDifficulties,
         categories: selectedCategories,
         active,
-        closureDate: closureDate ? new Date(closureDate).toISOString() : null,
+        closureDate: closureDate
+          ? new Date(closureDate).toISOString()
+          : undefined,
         questions: questionIds,
         settings: {
           allowRetake,

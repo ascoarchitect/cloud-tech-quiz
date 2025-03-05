@@ -26,8 +26,8 @@ const Footer: React.FC = () => {
               Cloud Skills Assessment
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Test your knowledge of AWS services and prepare for certification
-              exams
+              Test your knowledge of cloud services and prepare for
+              certification exams
             </Typography>
           </Box>
 

@@ -88,3 +88,20 @@ export type ImportResultType = {
   importedCount: number;
   errors: string[];
 };
+
+export interface TestResponseMetadata {
+  disqualified?: boolean;
+  disqualificationReason?: string;
+  [key: string]: any; // Allow for additional metadata properties
+}
+
+export interface UpdateResponseInput {
+  id: string;
+  answers?: AnswerType[];
+  score?: number;
+  completed?: boolean;
+  endTime?: string;
+  cheatingAttempts?: number;
+  cheatingDetails?: string[];
+  metadata?: TestResponseMetadata;
+}

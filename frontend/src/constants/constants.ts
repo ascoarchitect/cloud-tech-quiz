@@ -24,5 +24,5 @@ export const CATEGORY_OPTIONS = [
   "Quantum Technologies",
   "General",
   "Other",
-  "Terraform"
+  "Terraform",
 ];

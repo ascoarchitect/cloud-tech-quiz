@@ -10,12 +10,14 @@ import {
   Box,
 } from "@mui/material";
 import { getTest } from "../services/api";
+import { useAuth } from "../auth/context";
 
 const HomePage: React.FC = () => {
   const [testId, setTestId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { authStatus, login } = useAuth();
 
   const handleTestIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setTestId(event.target.value);
@@ -71,43 +73,57 @@ const HomePage: React.FC = () => {
           Test your cloud knowledge and skills
         </Typography>
 
-        <Card sx={{ maxWidth: 600, margin: "40px auto", padding: 4 }}>
-          <Typography variant="h6" gutterBottom>
-            Enter your Test ID to begin
-          </Typography>
+        {authStatus === "authenticated" && (
+          <Card sx={{ maxWidth: 600, margin: "40px auto", padding: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Enter your Test ID to begin
+            </Typography>
 
-          <TextField
-            fullWidth
-            label="Test ID"
-            variant="outlined"
-            margin="normal"
-            value={testId}
-            onChange={handleTestIdChange}
-            placeholder="Enter the unique test ID provided to you"
-          />
+            <TextField
+              fullWidth
+              label="Test ID"
+              variant="outlined"
+              margin="normal"
+              value={testId}
+              onChange={handleTestIdChange}
+              placeholder="Enter the unique test ID provided to you"
+            />
 
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
 
-          <Button
-            variant="contained"
-            color="primary"
-            size="large"
-            onClick={startTest}
-            disabled={loading}
-            sx={{ mt: 3 }}
-          >
-            {loading ? "Loading..." : "Start Test"}
-          </Button>
-        </Card>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={startTest}
+              disabled={loading}
+              sx={{ mt: 3 }}
+            >
+              {loading ? "Loading..." : "Start Test"}
+            </Button>
+          </Card>
+        )}
 
-        <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
-          If you are an administrator, please access the admin dashboard to
-          create and manage tests.
-        </Typography>
+        {authStatus === "unauthenticated" && (
+          <Card sx={{ maxWidth: 600, margin: "40px auto", padding: 4 }}>
+            <Typography variant="body1" gutterBottom>
+              Please sign in to access the Cloud Skills Assessment platform.
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              size="large"
+              onClick={login}
+              sx={{ mt: 3 }}
+            >
+              Sign In
+            </Button>
+          </Card>
+        )}
       </Box>
     </Container>
   );

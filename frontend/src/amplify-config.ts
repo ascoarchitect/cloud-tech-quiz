@@ -1,5 +1,5 @@
 // src/amplify-config.ts
-import { Amplify } from 'aws-amplify';
+import { Amplify } from "aws-amplify";
 
 export const configureAmplify = () => {
   Amplify.configure({
@@ -10,13 +10,13 @@ export const configureAmplify = () => {
         loginWith: {
           oauth: {
             domain: `${import.meta.env.VITE_COGNITO_DOMAIN}.auth.${import.meta.env.VITE_AWS_REGION}.amazoncognito.com`,
-            scopes: ['email', 'openid', 'profile'],
+            scopes: ["email", "openid", "profile"],
             redirectSignIn: [window.location.origin],
             redirectSignOut: [window.location.origin],
-            responseType: 'code'
-          }
-        }
-      }
-    }
+            responseType: "code",
+          },
+        },
+      },
+    },
   });
 };

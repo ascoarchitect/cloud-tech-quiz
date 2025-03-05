@@ -54,7 +54,10 @@ import {
   importQuestions,
 } from "../../services/api";
 import { QuestionType, OptionType } from "../../types";
-import { CATEGORY_OPTIONS, DIFFICULTY_OPTIONS } from "../../constants/constants";
+import {
+  CATEGORY_OPTIONS,
+  DIFFICULTY_OPTIONS,
+} from "../../constants/constants";
 
 const AdminQuestionManagement: React.FC = () => {
   // State for question list

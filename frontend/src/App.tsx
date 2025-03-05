@@ -30,10 +30,23 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<HomePage />} />
-            <Route path="/test/:testId/take" element={<TestPage />} />
+
+            {/* Protected routes */}
+            <Route
+              path="/test/:testId/take"
+              element={
+                <AuthGuard>
+                  <TestPage />
+                </AuthGuard>
+              }
+            />
             <Route
               path="/test/:testId/results/:responseId"
-              element={<ResultsPage />}
+              element={
+                <AuthGuard>
+                  <ResultsPage />
+                </AuthGuard>
+              }
             />
 
             {/* Admin routes */}
