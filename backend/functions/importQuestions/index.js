@@ -75,10 +75,7 @@ exports.handler = async (event) => {
     // Return import result
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify({
         success: errors.length === 0,
         importedCount,
@@ -90,10 +87,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify({
         success: false,
         importedCount: 0,

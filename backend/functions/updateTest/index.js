@@ -135,10 +135,7 @@ exports.handler = async (event) => {
     // Return the updated test
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify(updateResult.Attributes),
     };
   } catch (error) {
@@ -146,10 +143,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify({ message: "Internal server error" }),
     };
   }

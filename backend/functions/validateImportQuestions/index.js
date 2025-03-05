@@ -93,10 +93,7 @@ exports.handler = async (event) => {
     // Return validation result
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify({
         valid: errors.length === 0,
         errors: errors,
@@ -107,10 +104,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
       body: JSON.stringify({
         valid: false,
         errors: ["Internal server error"],
