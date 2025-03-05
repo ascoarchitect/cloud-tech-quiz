@@ -6,10 +6,6 @@ on:
       - main
       - develop
   workflow_dispatch:
-  # Required for OIDC token generation
-  permissions:
-    id-token: write
-    contents: read
     inputs:
       environment:
         description: 'Environment to deploy to'
