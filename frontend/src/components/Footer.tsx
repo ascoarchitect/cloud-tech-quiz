@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
         >
           <Box sx={{ mb: 2 }}>
             <Typography variant="h6" color="text.primary" gutterBottom>
-              AWS Cloud Skills Assessment
+              Cloud Skills Assessment
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Test your knowledge of AWS services and prepare for certification

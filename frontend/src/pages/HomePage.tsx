@@ -65,10 +65,10 @@ const HomePage: React.FC = () => {
     <Container maxWidth="md">
       <Box sx={{ my: 4, textAlign: "center" }}>
         <Typography variant="h3" component="h1" gutterBottom>
-          AWS Cloud Skills Assessment
+          Cloud Skills Assessment
         </Typography>
         <Typography variant="h5" component="h2" gutterBottom>
-          Test your AWS cloud knowledge and skills
+          Test your cloud knowledge and skills
         </Typography>
 
         <Card sx={{ maxWidth: 600, margin: "40px auto", padding: 4 }}>

@@ -197,7 +197,7 @@ const Header: React.FC = () => {
                 color: "inherit",
               }}
             >
-              AWS Skills Assessment
+              Cloud Skills Assessment
             </Typography>
             <Drawer
               anchor="left"
@@ -219,7 +219,7 @@ const Header: React.FC = () => {
                 color: "inherit",
               }}
             >
-              AWS Skills Assessment
+              Cloud Skills Assessment
             </Typography>
 
             <Box sx={{ flexGrow: 1, display: "flex" }}>
