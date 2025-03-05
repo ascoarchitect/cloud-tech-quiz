@@ -2,8 +2,6 @@
 
 A comprehensive assessment platform designed for evaluating AWS cloud knowledge and preparing for certification exams.
 
-![AWS Cloud Skills Assessment](https://via.placeholder.com/800x400?text=AWS+Cloud+Skills+Assessment)
-
 ## 📋 Overview
 
 This application provides a platform for creating, managing, and taking AWS certification practice tests. It allows administrators to create customized tests with various question types, while users can test their knowledge in a simulated exam environment.
