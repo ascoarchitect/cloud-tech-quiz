@@ -98,7 +98,7 @@ const Footer: React.FC = () => {
           <Typography variant="body2" color="text.secondary" align="center">
             {"© "}
             {new Date().getFullYear()}
-            {" AWS Cloud Skills Assessment. All rights reserved."}
+            {" Adam Scott (github.com/ascoarchitect). All rights reserved."}
           </Typography>
         </Box>
       </Container>

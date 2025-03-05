@@ -43,6 +43,16 @@ body {
   padding-bottom: 2rem;
 }
 
+a {
+  font-family: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 /* Loading indicator */
 .loading {
   display: flex;

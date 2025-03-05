@@ -56,11 +56,12 @@ import {
 import { QuestionType, OptionType } from "../../types";
 
 // Define difficulty options
-const DIFFICULTY_OPTIONS = ["CP", "SAA", "DEV", "OPS", "PRO"];
+const DIFFICULTY_OPTIONS = ["CP", "SAA", "DEV", "OPS", "PRO", "TF"];
 
 // Define category options based on AWS exam categories
 const CATEGORY_OPTIONS = [
   "Compute",
+  "Analytics",
   "Storage",
   "Database",
   "Networking",
@@ -74,6 +75,13 @@ const CATEGORY_OPTIONS = [
   "IAM",
   "Containers",
   "Monitoring",
+  "Developer Tools",
+  "Management & Governance",
+  "End User Computing",
+  "Quantum Technologies",
+  "General",
+  "Other",
+  "Terraform"
 ];
 
 const AdminQuestionManagement: React.FC = () => {
