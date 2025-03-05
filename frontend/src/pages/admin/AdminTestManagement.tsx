@@ -219,8 +219,9 @@ const AdminTestManagement: React.FC = () => {
 
     setResponsesLoading(true);
     try {
+      // Use the direct testId parameter instead of filter object
       const result = await listResponses({
-        filter: { testId: { eq: testId } },
+        testId: testId,
         limit: 1000,
       });
 

@@ -271,6 +271,8 @@ export interface ListResponsesOptions {
   limit?: number;
   nextToken?: string;
   filter?: Record<string, any>;
+  testId?: string;
+  userId?: string;
 }
 
 export interface ListResponsesResponse {
@@ -289,6 +291,14 @@ export async function listResponses(
 
   if (options?.nextToken) {
     queryParams.nextToken = options.nextToken;
+  }
+
+  if (options?.testId) {
+    queryParams.testId = options.testId;
+  }
+
+  if (options?.userId) {
+    queryParams.userId = options.userId;
   }
 
   if (options?.filter) {
