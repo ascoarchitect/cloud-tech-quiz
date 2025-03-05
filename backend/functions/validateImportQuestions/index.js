@@ -3,10 +3,11 @@
  * Validate questions for import
  */
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://djvreacd6aujl.cloudfront.net',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Credentials': 'true'
+  "Access-Control-Allow-Origin": "https://djvreacd6aujl.cloudfront.net",
+  "Access-Control-Allow-Headers":
+    "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Credentials": "true",
 };
 exports.handler = async (event) => {
   try {

@@ -242,6 +242,7 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !GetAtt UserPool.Arn
+        AddDefaultAuthorizerToCorsPreflight: false
       Cors:
         AllowMethods: "'GET, POST, PUT, DELETE, OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
@@ -257,6 +258,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         GetQuestionApi:
           Type: Api
@@ -273,6 +277,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         ListQuestionsApi:
           Type: Api
@@ -289,6 +296,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         CreateQuestionApi:
           Type: Api
@@ -305,6 +315,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         UpdateQuestionApi:
           Type: Api
@@ -321,6 +334,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         DeleteQuestionApi:
           Type: Api
@@ -338,6 +354,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref TestTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         GetTestApi:
           Type: Api
@@ -354,6 +373,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref TestTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         ListTestsApi:
           Type: Api
@@ -370,6 +392,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TestTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         CreateTestApi:
           Type: Api
@@ -386,6 +411,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TestTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         UpdateTestApi:
           Type: Api
@@ -402,6 +430,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TestTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         DeleteTestApi:
           Type: Api
@@ -419,6 +450,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ResponseTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         GetResponseApi:
           Type: Api
@@ -435,6 +469,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref ResponseTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         ListResponsesApi:
           Type: Api
@@ -451,6 +488,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ResponseTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         CreateResponseApi:
           Type: Api
@@ -467,6 +507,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ResponseTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         UpdateResponseApi:
           Type: Api
@@ -483,6 +526,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref ResponseTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         DeleteResponseApi:
           Type: Api
@@ -504,6 +550,9 @@ Resources:
             TableName: !Ref ResponseTable
         - DynamoDBReadPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         GetTestStatisticsApi:
           Type: Api
@@ -517,6 +566,9 @@ Resources:
     Properties:
       CodeUri: functions/validateImportQuestions/
       Handler: index.handler
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         ValidateImportQuestionsApi:
           Type: Api
@@ -533,6 +585,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref QuestionTable
+      Environment:
+        Variables:
+          ALLOWED_ORIGIN: !Sub "https://${CloudFrontDistribution.DomainName}"
       Events:
         ImportQuestionsApi:
           Type: Api
