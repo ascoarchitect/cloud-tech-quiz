@@ -77,13 +77,16 @@ jobs:
           pip install --upgrade aws-sam-cli
 
       - name: SAM Build
-        run: sam build --use-container
+        working-directory: backend
+        run: sam build --use-container --template template.yaml
 
       - name: SAM Deploy
+        working-directory: backend
         run: |
           STACK_NAME="${{ env.AUTHOR }}-cloudquizapp-${ENVIRONMENT}"
           sam deploy \
             --stack-name $STACK_NAME \
+            --template-file template.yaml \
             --parameter-overrides Environment=$ENVIRONMENT Author=${{ env.AUTHOR }} \
             --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
             --resolve-s3 \
