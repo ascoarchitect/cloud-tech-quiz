@@ -1,0 +1,162 @@
+name: Deploy Cloud Quiz App
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+  # Required for OIDC token generation
+  permissions:
+    id-token: write
+    contents: read
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+
+env:
+  AUTHOR: 'ascoarchitect'
+  DEFAULT_ENV: 'dev'
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+    steps:
+      - name: Set Environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            echo "environment=stage" >> $GITHUB_OUTPUT
+          else
+            echo "environment=${{ env.DEFAULT_ENV }}" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-backend:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActionsSession
+
+      - name: Install AWS SAM CLI
+        run: |
+          pip install --upgrade aws-sam-cli
+
+      - name: SAM Build
+        run: sam build --use-container
+
+      - name: SAM Deploy
+        run: |
+          STACK_NAME="${{ env.AUTHOR }}-cloudquizapp-${ENVIRONMENT}"
+          sam deploy \
+            --stack-name $STACK_NAME \
+            --parameter-overrides Environment=$ENVIRONMENT Author=${{ env.AUTHOR }} \
+            --capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND CAPABILITY_NAMED_IAM \
+            --resolve-s3 \
+            --no-confirm-changeset \
+            --use-container
+            
+      - name: Export CloudFormation outputs
+        id: cf-outputs
+        run: |
+          STACK_NAME="${{ env.AUTHOR }}-cloudquizapp-${ENVIRONMENT}"
+          echo "API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "CLOUDFRONT_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='CloudFrontURL'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "USER_POOL_ID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "USER_POOL_CLIENT_ID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "IDENTITY_POOL_ID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='IdentityPoolId'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query "Stacks[0].Outputs[?OutputKey=='WebsiteURL'].OutputValue" --output text | sed 's/^http:\/\///' | sed 's/\.s3-website.*//')" >> $GITHUB_ENV
+
+  deploy-frontend:
+    needs: [determine-environment, deploy-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOL
+          VITE_API_URL=${{ env.API_URL }}
+          VITE_USER_POOL_ID=${{ env.USER_POOL_ID }}
+          VITE_USER_POOL_CLIENT_ID=${{ env.USER_POOL_CLIENT_ID }}
+          VITE_IDENTITY_POOL_ID=${{ env.IDENTITY_POOL_ID }}
+          VITE_REGION=${{ secrets.AWS_REGION }}
+          VITE_ENVIRONMENT=${{ env.ENVIRONMENT }}
+          EOL
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActionsSession
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ env.S3_BUCKET }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          DISTRIBUTION_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='$(echo ${{ env.CLOUDFRONT_URL }} | sed 's/https:\/\///')'].Id" --output text)
+          aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "Frontend deployed to: ${{ env.CLOUDFRONT_URL }}"
+          echo "API endpoint: ${{ env.API_URL }}"
