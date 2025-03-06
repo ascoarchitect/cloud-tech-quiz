@@ -63,6 +63,7 @@ const Footer: React.FC = () => {
 
           <Box sx={{ display: "flex", flexDirection: "column", mb: 2 }}>
             <Typography variant="subtitle1" color="text.primary" gutterBottom>
+              Certification Tracks
             </Typography>
             <Link
               href="https://azure.microsoft.com/en-us/resources/training-and-certifications/"
