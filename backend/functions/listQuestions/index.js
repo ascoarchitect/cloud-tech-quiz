@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     // Base scan parameters
     let params = {
       TableName: process.env.QUESTION_TABLE,
-      Limit: 100,
+      Limit: 1000,
     };
 
     // Apply category filter if provided
