@@ -29,6 +29,7 @@ import {
 } from "../services/api";
 import { TestType, QuestionType, AnswerType } from "../types";
 import AntiCheatModule from "../utils/antiCheat";
+import { useAuth } from "../auth/context";
 
 const TestPage: React.FC = () => {
   const { testId } = useParams<{ testId: string }>();
@@ -43,6 +44,7 @@ const TestPage: React.FC = () => {
   // User state
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
+  const { user } = useAuth();
 
   // Test progress state
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -153,7 +155,7 @@ const TestPage: React.FC = () => {
         // Extract user info
         const username = userSession.getUsername();
         setUserId(username);
-        setUserName(username);
+        setUserName(user?.name || "Unknown User");
 
         // Fetch test data
         const testData = await getTest(testId);

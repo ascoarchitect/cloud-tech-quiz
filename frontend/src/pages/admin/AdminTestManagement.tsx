@@ -218,34 +218,34 @@ const AdminTestManagement: React.FC = () => {
   // Fetch test responses
   const fetchTestResponses = async () => {
     if (!testId) return;
-
+  
     setResponsesLoading(true);
     try {
       let allResponses: ResponseType[] = [];
       let nextToken: string | undefined = undefined;
       let hasMore = true;
-
+  
       while (hasMore) {
         const result = await listResponses({
-          filter: { testId: { eq: testId } },
+          testId: testId, // Pass testId directly instead of in a filter object
           limit: 100,
           nextToken: nextToken,
         });
-
+  
         const responsesBatch = result.items || [];
         allResponses = [...allResponses, ...responsesBatch];
-
+  
         nextToken = result.nextToken || undefined;
         hasMore = !!nextToken;
       }
-
+  
       // Sort by start time (newest first)
       allResponses.sort((a, b) => {
         return (
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
         );
       });
-
+  
       setResponses(allResponses);
       setResponsesLoading(false);
     } catch (err) {
