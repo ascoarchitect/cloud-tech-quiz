@@ -124,9 +124,12 @@ exports.handler = async (event) => {
       Key: { id: testId },
       UpdateExpression: updateExpression,
       ExpressionAttributeValues: expressionAttributeValues,
-      ExpressionAttributeNames: {
-        "#name": "name", // 'name' is a reserved word in DynamoDB
-      },
+      // Only include ExpressionAttributeNames if name is being updated
+      ...(requestBody.name !== undefined && {
+        ExpressionAttributeNames: {
+          "#name": "name", // 'name' is a reserved word in DynamoDB
+        }
+      }),
       ReturnValues: "ALL_NEW",
     };
 

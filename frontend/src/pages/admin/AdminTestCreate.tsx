@@ -29,7 +29,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { createTest, listQuestions, getQuestion } from "../../services/api";
+import { createTest, listQuestions } from "../../services/api";
 import { QuestionType } from "../../types";
 import {
   CATEGORY_OPTIONS,
@@ -44,7 +44,7 @@ const AdminTestCreate: React.FC = () => {
   const [description, setDescription] = useState("");
   const [timeLimit, setTimeLimit] = useState(60);
   const [numQuestions, setNumQuestions] = useState(20);
-  const [active, setActive] = useState(true);
+  const [active, setActive] = useState<string>("true");
   const [closureDate, setClosureDate] = useState("");
 
   // Test settings
@@ -499,8 +499,10 @@ const AdminTestCreate: React.FC = () => {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={active}
-                      onChange={(e) => setActive(e.target.checked)}
+                      checked={active === "true"}
+                      onChange={(e) =>
+                        setActive(e.target.checked ? "true" : "false")
+                      }
                       color="primary"
                     />
                   }
@@ -1130,8 +1132,8 @@ const AdminTestCreate: React.FC = () => {
 
                       <Typography variant="subtitle2">Status</Typography>
                       <Chip
-                        label={active ? "Active" : "Inactive"}
-                        color={active ? "success" : "error"}
+                        label={active === "true" ? "Active" : "Inactive"}
+                        color={active === "true" ? "success" : "error"}
                         size="small"
                         sx={{ mb: 2 }}
                       />

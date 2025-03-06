@@ -31,7 +31,7 @@ export type TestType = {
   numQuestions: number;
   difficulty: string[];
   categories: string[];
-  active: boolean;
+  active: string;
   closureDate?: string;
   questions: string[];
   settings: TestSettingsType;

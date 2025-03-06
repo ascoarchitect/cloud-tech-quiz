@@ -129,6 +129,8 @@ const AdminTestManagement: React.FC = () => {
   const [responsesLoading, setResponsesLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [toggleLoading, setToggleLoading] = useState(false);
+  const [toggleError, setToggleError] = useState("");
 
   // UI state
   const [tabValue, setTabValue] = useState(0);
@@ -137,7 +139,7 @@ const AdminTestManagement: React.FC = () => {
   const [editFormData, setEditFormData] = useState({
     name: "",
     description: "",
-    active: true,
+    active: "true",
     closureDate: "",
     allowRetake: false,
     randomizeQuestions: true,
@@ -509,10 +511,12 @@ const AdminTestManagement: React.FC = () => {
 
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
               <Chip
-                label={test.active ? "Active" : "Inactive"}
-                color={test.active ? "success" : "error"}
+                label={test.active === "true" ? "Active" : "Inactive"}
+                color={test.active === "true" ? "success" : "error"}
                 variant="outlined"
-                icon={test.active ? <CheckCircleIcon /> : <CancelIcon />}
+                icon={
+                  test.active === "true" ? <CheckCircleIcon /> : <CancelIcon />
+                }
               />
               <Chip
                 label={`${test.numQuestions} Questions`}
@@ -641,23 +645,42 @@ const AdminTestManagement: React.FC = () => {
 
               <Button
                 variant="outlined"
-                startIcon={test.active ? <LinkOffIcon /> : <LinkOnIcon />}
-                color={test.active ? "error" : "success"}
+                startIcon={
+                  test.active === "true" ? <LinkOffIcon /> : <LinkOnIcon />
+                }
+                color={test.active === "true" ? "error" : "success"}
                 onClick={async () => {
+                  setToggleLoading(true);
+                  setToggleError("");
                   try {
                     await updateTest({
                       id: test.id,
-                      active: !test.active,
+                      active: test.active === "true" ? "false" : "true",
                     });
-                    fetchTestData();
+                    await fetchTestData(); // Make sure to await this
+                    setToggleLoading(false);
                   } catch (err) {
                     console.error("Error toggling test status:", err);
+                    setToggleError("Failed to update test status");
+                    setToggleLoading(false);
                   }
                 }}
+                disabled={toggleLoading}
                 fullWidth
               >
-                {test.active ? "Deactivate Test" : "Activate Test"}
+                {toggleLoading ? (
+                  <CircularProgress size={24} sx={{ mr: 1 }} />
+                ) : test.active === "true" ? (
+                  "Deactivate Test"
+                ) : (
+                  "Activate Test"
+                )}
               </Button>
+              {toggleError && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  {toggleError}
+                </Alert>
+              )}
             </Box>
           </Grid>
         </Grid>
@@ -1059,11 +1082,11 @@ const AdminTestManagement: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={editFormData.active}
+                    checked={editFormData.active === "true"}
                     onChange={(e) =>
                       setEditFormData({
                         ...editFormData,
-                        active: e.target.checked,
+                        active: e.target.checked ? "true" : "false",
                       })
                     }
                     color="primary"

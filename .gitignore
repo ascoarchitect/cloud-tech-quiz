@@ -77,3 +77,4 @@ next-env.d.ts
 *.log
 .cache
 .cache-loader
+.DS_Store

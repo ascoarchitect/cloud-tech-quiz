@@ -17,12 +17,14 @@ interface AntiCheatOptions {
   maxFocusChanges?: number;
   maxTimeAwayMs?: number;
   disqualifyAfterDetection?: boolean;
+  testId?: string;
 }
 
 class AntiCheatModule {
   private detectionCallback: CheatDetectionCallback;
   private warningCallback: WarningCallback;
   private disqualificationCallback: DisqualificationCallback;
+  private testId: string;
   private warningCount: number = 0;
   private maxWarnings: number = 2; // Number of warnings before triggering cheat detection
   private lastFocusTime: number = 0;
@@ -47,6 +49,7 @@ class AntiCheatModule {
     this.warningCallback = warningCallback;
     this.disqualificationCallback = disqualificationCallback;
 
+    // Get options with defaults
     if (options) {
       if (options.maxWarnings !== undefined)
         this.maxWarnings = options.maxWarnings;
@@ -57,6 +60,9 @@ class AntiCheatModule {
       if (options.disqualifyAfterDetection !== undefined)
         this.disqualifyAfterDetection = options.disqualifyAfterDetection;
     }
+
+    // Set testId with a default
+    this.testId = options?.testId || "unknown";
 
     this.lastFocusTime = Date.now();
   }
@@ -267,10 +273,10 @@ class AntiCheatModule {
     this.isDisqualified = true;
     this.disqualificationCallback(reason);
 
-    // Optionally store disqualification in local storage as a backup
+    // Store with test-specific key
     try {
-      localStorage.setItem("testDisqualified", "true");
-      localStorage.setItem("disqualificationReason", reason);
+      localStorage.setItem(`testDisqualified_${this.testId}`, "true");
+      localStorage.setItem(`disqualificationReason_${this.testId}`, reason);
     } catch (e) {
       // Ignore storage errors
     }

@@ -17,12 +17,15 @@ import {
   DialogTitle,
   Alert,
   Snackbar,
+  CircularProgress,
 } from "@mui/material";
 import {
   getTest,
   getQuestion,
   createResponse,
   updateResponse,
+  listResponses,
+  getResponse,
 } from "../services/api";
 import { TestType, QuestionType, AnswerType } from "../types";
 import AntiCheatModule from "../utils/antiCheat";
@@ -52,29 +55,82 @@ const TestPage: React.FC = () => {
   const [selectedOption, setSelectedOption] = useState("");
   const [confirmEndDialog, setConfirmEndDialog] = useState(false);
   const [warning, setWarning] = useState("");
+  const [savingProgress, setSavingProgress] = useState(false);
 
   // Disqualification state
-  const [isDisqualified, setIsDisqualified] = useState(false);
-  const [disqualificationReason, setDisqualificationReason] = useState("");
+  const [cheatingQuestions, setCheatingQuestions] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isDisqualified, setIsDisqualified] = useState(() => {
+    // Check on initial render
+    if (!testId) return false;
+    return localStorage.getItem(`testDisqualified_${testId}`) === "true";
+  });
+
+  const [disqualificationReason, setDisqualificationReason] = useState(() => {
+    if (!testId) return "";
+    return (
+      localStorage.getItem(`disqualificationReason_${testId}`) ||
+      "Test has been terminated due to rule violations"
+    );
+  });
+
+  const [disqualificationInProgress, setDisqualificationInProgress] =
+    useState(false);
 
   // Anti-cheat reference
   const antiCheatRef = useRef<AntiCheatModule | null>(null);
   const questionStartTimeRef = useRef<number>(0);
 
-  // Check for disqualification on load and on refresh
+  // Check for disqualification and previous attempts on component mount
   useEffect(() => {
-    try {
-      const storedDisqualified = localStorage.getItem("testDisqualified");
-      const storedReason = localStorage.getItem("disqualificationReason");
+    if (!testId) return;
 
-      if (storedDisqualified === "true" && storedReason) {
-        setIsDisqualified(true);
-        setDisqualificationReason(storedReason);
-      }
-    } catch (e) {
-      // Ignore storage errors
+    // First check localStorage for fastest check
+    const storedDisqualified = localStorage.getItem(
+      `testDisqualified_${testId}`,
+    );
+    if (storedDisqualified === "true") {
+      const reason =
+        localStorage.getItem(`disqualificationReason_${testId}`) ||
+        "Test has been terminated due to rule violations";
+      setIsDisqualified(true);
+      setDisqualificationReason(reason);
     }
-  }, []);
+
+    // Also check previous attempts if we have a userId
+    if (userId) {
+      const checkPreviousDisqualification = async () => {
+        try {
+          // Get previous responses for this test by this user
+          const responses = await listResponses({
+            testId: testId,
+            userId: userId,
+          });
+
+          // Check if user previously cheated on this test
+          const previouslyCheated = responses.items.some(
+            (response) =>
+              (response.cheatingAttempts || 0) > 0 &&
+              response.cheatingDetails?.some((detail) =>
+                detail?.includes("Disqualified:"),
+              ),
+          );
+
+          if (previouslyCheated) {
+            setIsDisqualified(true);
+            setDisqualificationReason(
+              "You have previously been disqualified from this test and cannot retake it.",
+            );
+          }
+        } catch (err) {
+          console.error("Error checking previous responses:", err);
+        }
+      };
+
+      checkPreviousDisqualification();
+    }
+  }, [testId, userId]);
 
   // Fetch test data and setup
   useEffect(() => {
@@ -94,15 +150,15 @@ const TestPage: React.FC = () => {
           return;
         }
 
-        // Extract user info - note that we need to use the username from the session
-        // and can use it as the userId as well (or any unique identifier)
-        setUserId(userSession.getUsername());
-        setUserName(userSession.getUsername());
+        // Extract user info
+        const username = userSession.getUsername();
+        setUserId(username);
+        setUserName(username);
 
         // Fetch test data
         const testData = await getTest(testId);
 
-        if (!testData.active) {
+        if (testData.active !== "true") {
           setError("This test is no longer active");
           setLoading(false);
           return;
@@ -118,6 +174,51 @@ const TestPage: React.FC = () => {
             setLoading(false);
             return;
           }
+        }
+
+        // Check if user has previous attempts that would prevent taking the test
+        try {
+          const previousResponses = await listResponses({
+            testId: testId,
+            userId: username,
+          });
+
+          // If retakes are not allowed, check if they've already completed it successfully
+          if (testData.settings?.allowRetake !== true) {
+            const hasCompletedBefore = previousResponses.items.some(
+              (response) =>
+                response.completed &&
+                !response.cheatingDetails?.some((detail) =>
+                  detail.includes("Disqualified:"),
+                ),
+            );
+
+            if (hasCompletedBefore) {
+              setError("Retakes are not allowed for this test.");
+              setLoading(false);
+              return;
+            }
+          }
+
+          // Check for previous disqualification regardless of retake settings
+          const previouslyCheated = previousResponses.items.some(
+            (response) =>
+              (response.cheatingAttempts || 0) > 0 && // Add the || 0 to handle undefined
+              response.cheatingDetails?.some((detail) =>
+                detail?.includes("Disqualified:"),
+              ),
+          );
+
+          if (previouslyCheated) {
+            setIsDisqualified(true);
+            setDisqualificationReason(
+              "You have previously been disqualified from this test and cannot retake it.",
+            );
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Error checking previous responses:", err);
         }
 
         setTest(testData);
@@ -228,6 +329,7 @@ const TestPage: React.FC = () => {
             maxFocusChanges: 3,
             maxTimeAwayMs: 15000, // 15 seconds
             disqualifyAfterDetection: true,
+            testId: testId,
           },
         );
 
@@ -251,11 +353,30 @@ const TestPage: React.FC = () => {
     if (!responseId) return;
 
     try {
+      // Track the cheating question in our local state
+      const newCheatingQuestions = new Set(cheatingQuestions);
+      const currentQuestionId = answers[currentQuestionIndex]?.questionId;
+      if (currentQuestionId) {
+        newCheatingQuestions.add(currentQuestionId);
+        setCheatingQuestions(newCheatingQuestions);
+      }
+
+      // Get the current response to check current cheatingAttempts value
+      let cheatingAttempts = 1; // Default to 1 if we can't get current value
+      try {
+        const currentResponse = await getResponse(responseId);
+        if (currentResponse && currentResponse.cheatingAttempts) {
+          cheatingAttempts = currentResponse.cheatingAttempts + 1;
+        }
+      } catch (err) {
+        console.error("Error fetching current response:", err);
+      }
+
       // Update response with cheating details
       await updateResponse({
         id: responseId,
-        cheatingAttempts: 1,
-        cheatingDetails: [reason],
+        cheatingAttempts: cheatingAttempts,
+        cheatingDetails: [`Cheating detected: ${reason}`],
       });
     } catch (err) {
       console.error("Error handling cheat detection:", err);
@@ -264,40 +385,53 @@ const TestPage: React.FC = () => {
 
   // Handle disqualification
   const handleDisqualification = async (reason: string) => {
-    if (!responseId || isDisqualified) return;
+    if (!responseId || isDisqualified || disqualificationInProgress) return;
+
+    // Prevent multiple simultaneous disqualifications
+    setDisqualificationInProgress(true);
+
+    // IMPORTANT: Set disqualification state FIRST
+    setIsDisqualified(true);
+    setDisqualificationReason(reason);
+
+    // Store disqualification in local storage immediately
+    localStorage.setItem(`testDisqualified_${testId}`, "true");
+    localStorage.setItem(`disqualificationReason_${testId}`, reason);
+
+    // Stop anti-cheat monitoring immediately
+    if (antiCheatRef.current) {
+      antiCheatRef.current.stop();
+    }
 
     try {
-      // Immediately set disqualification state to prevent further interaction
-      setIsDisqualified(true);
-      setDisqualificationReason(reason);
-
-      // Store disqualification in local storage as a backup
-      localStorage.setItem("testDisqualified", "true");
-      localStorage.setItem("disqualificationReason", reason);
-
-      // Update response with disqualification details - using only properties
-      // that exist in the API according to the type definition
-      await updateResponse({
-        id: responseId,
-        cheatingAttempts: 1, // Set cheating attempts counter
-        cheatingDetails: [reason],
-        completed: true,
-        endTime: new Date().toISOString(),
-      });
-
-      // Stop anti-cheat monitoring
-      if (antiCheatRef.current) {
-        antiCheatRef.current.stop();
+      // Get current question ID and add to cheating questions
+      const currentQuestionId = answers[currentQuestionIndex]?.questionId;
+      if (currentQuestionId) {
+        const newCheatingQuestions = new Set(cheatingQuestions);
+        newCheatingQuestions.add(currentQuestionId);
+        setCheatingQuestions(newCheatingQuestions);
       }
 
-      // Close any open dialogs
-      setConfirmEndDialog(false);
-      setWarning("");
+      // Update response with disqualification details
+      await updateResponse({
+        id: responseId,
+        completed: true, // CRUCIAL: Mark as completed
+        endTime: new Date().toISOString(),
+        cheatingAttempts: cheatingQuestions.size + 1,
+        cheatingDetails: [
+          ...Array.from(cheatingQuestions).map(
+            (qId) => `Cheating on question ${qId}`,
+          ),
+          `Disqualified: ${reason}`,
+        ],
+        score: 0, // Set a zero score for disqualified tests
+      });
 
-      // No need to show the dialog - the component will re-render with the disqualification screen
-      // because isDisqualified is now true
+      console.log("Test disqualified and response updated in database");
     } catch (err) {
       console.error("Error handling disqualification:", err);
+    } finally {
+      setDisqualificationInProgress(false);
     }
   };
 
@@ -360,6 +494,7 @@ const TestPage: React.FC = () => {
   const saveProgress = async () => {
     if (!responseId || isDisqualified) return;
 
+    setSavingProgress(true);
     try {
       await updateResponse({
         id: responseId,
@@ -367,12 +502,16 @@ const TestPage: React.FC = () => {
       });
     } catch (err) {
       console.error("Error saving progress:", err);
+    } finally {
+      setSavingProgress(false);
     }
   };
 
   // End the test
   const endTest = async (_isTimeOut: boolean = false) => {
     if (!responseId || !test || isDisqualified) return;
+
+    setLoading(true);
 
     // Record time spent on final question
     const updatedAnswers = [...answers];
@@ -439,6 +578,8 @@ const TestPage: React.FC = () => {
       navigate(`/test/${testId}/results/${responseId}`);
     } catch (err) {
       console.error("Error ending test:", err);
+      setError("Failed to submit test. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -451,8 +592,6 @@ const TestPage: React.FC = () => {
 
     try {
       // Navigate to results with disqualification flag
-      // We'll use a query parameter to indicate disqualification
-      // The ResultsPage can read this and display appropriate messaging
       navigate(`/test/${testId}/results/${responseId}?status=disqualified`);
     } catch (err) {
       console.error("Error navigating to results:", err);
@@ -477,9 +616,8 @@ const TestPage: React.FC = () => {
     return newArray;
   };
 
-  // Disqualification screen
-  // This is now rendered BEFORE any other content when isDisqualified is true
-  if (isDisqualified) {
+  // Overlay for immediate feedback when disqualification is triggered
+  if (isDisqualified || disqualificationInProgress) {
     return (
       <Box sx={{ p: 3, textAlign: "center", maxWidth: 800, mx: "auto" }}>
         <Paper sx={{ p: 4, mb: 3, bgcolor: "#ffebee" }}>
@@ -498,17 +636,23 @@ const TestPage: React.FC = () => {
           </Typography>
 
           <Box sx={{ mt: 4 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleGoToResults}
-              sx={{ mr: 2 }}
-            >
-              View Results
-            </Button>
-            <Button variant="outlined" onClick={() => navigate("/")}>
-              Return to Home
-            </Button>
+            {disqualificationInProgress ? (
+              <CircularProgress sx={{ mb: 2 }} />
+            ) : (
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleGoToResults}
+                  sx={{ mr: 2 }}
+                >
+                  View Results
+                </Button>
+                <Button variant="outlined" onClick={() => navigate("/")}>
+                  Return to Home
+                </Button>
+              </>
+            )}
           </Box>
         </Paper>
       </Box>
@@ -654,14 +798,17 @@ const TestPage: React.FC = () => {
 
         <Box sx={{ mt: 3 }}>
           <RadioGroup value={selectedOption} onChange={handleOptionSelect}>
-            {currentQuestion.options.map((option) => (
+            {currentQuestion.options.map((option, index) => (
               <FormControlLabel
                 key={option.id}
+                // Still use the original option.id as the value
                 value={option.id}
                 control={<Radio />}
                 label={
                   <Typography>
-                    <strong>{option.id}.</strong> {option.text}
+                    {/* Use sequential letters instead of the original option.id */}
+                    <strong>{String.fromCharCode(65 + index)}.</strong>{" "}
+                    {option.text}
                   </Typography>
                 }
                 sx={{ mb: 1 }}
@@ -676,7 +823,7 @@ const TestPage: React.FC = () => {
         <Button
           variant="outlined"
           onClick={prevQuestion}
-          disabled={currentQuestionIndex === 0}
+          disabled={currentQuestionIndex === 0 || savingProgress}
         >
           Previous
         </Button>
@@ -685,21 +832,27 @@ const TestPage: React.FC = () => {
           variant="contained"
           color="error"
           onClick={() => setConfirmEndDialog(true)}
+          disabled={savingProgress}
         >
           End Test
         </Button>
 
         {currentQuestionIndex < questions.length - 1 ? (
-          <Button variant="contained" onClick={nextQuestion}>
-            Next
+          <Button
+            variant="contained"
+            onClick={nextQuestion}
+            disabled={savingProgress}
+          >
+            {savingProgress ? <CircularProgress size={24} /> : "Next"}
           </Button>
         ) : (
           <Button
             variant="contained"
             color="success"
             onClick={() => setConfirmEndDialog(true)}
+            disabled={savingProgress}
           >
-            Submit Test
+            {savingProgress ? <CircularProgress size={24} /> : "Submit Test"}
           </Button>
         )}
       </Box>
@@ -737,8 +890,6 @@ const TestPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Disqualification dialog - removed since we now immediately render the disqualification screen */}
 
       {/* Warning snackbar */}
       <Snackbar
