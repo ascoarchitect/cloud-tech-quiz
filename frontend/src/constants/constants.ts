@@ -1,5 +1,5 @@
 // Define difficulty options
-export const DIFFICULTY_OPTIONS = ["CP", "SAA", "DEV", "OPS", "PRO", "TF"];
+export const DIFFICULTY_OPTIONS = ["CP", "SAA", "DEV", "OPS", "PRO", "TF", "AzAA", "AzSEA", "AzNEA", "AzDSA", "AzDEA"];
 
 // Define category options based on AWS exam categories
 export const CATEGORY_OPTIONS = [
