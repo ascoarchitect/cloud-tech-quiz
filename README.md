@@ -212,12 +212,12 @@ The application follows a modern serverless architecture pattern built entirely 
 2. Update the SAM template parameters in template.yaml if needed
    ```yaml
    Parameters:
-  Environment:
-    Type: String
-    Default: dev
-  Author:
-    Type: String
-    Default: yourusername
+      Environment:
+         Type: String
+         Default: dev
+      Author:
+         Type: String
+         Default: yourusername
    ```
 
 2. Deploy using SAM
