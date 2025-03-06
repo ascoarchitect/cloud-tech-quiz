@@ -63,31 +63,30 @@ const Footer: React.FC = () => {
 
           <Box sx={{ display: "flex", flexDirection: "column", mb: 2 }}>
             <Typography variant="subtitle1" color="text.primary" gutterBottom>
-              Exams
             </Typography>
             <Link
-              href="https://aws.amazon.com/certification/certified-cloud-practitioner/"
+              href="https://azure.microsoft.com/en-us/resources/training-and-certifications/"
               color="inherit"
               target="_blank"
               rel="noopener"
             >
-              Cloud Practitioner
+              Azure Certification
             </Link>
             <Link
-              href="https://aws.amazon.com/certification/certified-solutions-architect-associate/"
+              href="https://cloud.google.com/learn/certification"
               color="inherit"
               target="_blank"
               rel="noopener"
             >
-              Solutions Architect Associate
+              Google Cloud Certification
             </Link>
             <Link
-              href="https://aws.amazon.com/certification/certified-developer-associate/"
+              href="https://www.hashicorp.com/en/certification"
               color="inherit"
               target="_blank"
               rel="noopener"
             >
-              Developer Associate
+              Terraform Certification
             </Link>
           </Box>
         </Box>

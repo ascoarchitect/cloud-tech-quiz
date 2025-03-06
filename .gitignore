@@ -78,3 +78,4 @@ next-env.d.ts
 .cache
 .cache-loader
 .DS_Store
+.github
