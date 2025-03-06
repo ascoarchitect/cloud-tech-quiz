@@ -1,5 +1,5 @@
 /**
- * Anti-cheating module for the AWS Cloud Skills Assessment application
+ * Anti-cheating module for the Cloud Skills Assessment application
  * This module implements various anti-cheating measures:
  * 1. Detecting window/tab focus changes (to prevent searching for answers)
  * 2. Detecting browser developer tools usage
