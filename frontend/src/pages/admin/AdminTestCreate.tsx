@@ -121,13 +121,29 @@ const AdminTestCreate: React.FC = () => {
   const fetchQuestions = async () => {
     setQuestionsLoading(true);
     try {
-      const result = await listQuestions({
-        limit: 1000,
-      });
+      let allQuestions: QuestionType[] = [];
+      let nextToken: string | undefined = undefined;
+      let hasMore = true;
 
-      const questionsData = result.items;
-      setAvailableQuestions(questionsData);
-      setFilteredQuestions(questionsData);
+      // Loop until we've fetched all questions
+      while (hasMore) {
+        const result = await listQuestions({
+          limit: 100, // Keep each request reasonable
+          nextToken: nextToken,
+          filter: {}, // Add any base filters here if needed
+        });
+
+        // Add the current batch to our collection
+        const questionsBatch = result.items || [];
+        allQuestions = [...allQuestions, ...questionsBatch];
+
+        // Check if there are more questions to fetch
+        nextToken = result.nextToken || undefined;
+        hasMore = !!nextToken;
+      }
+
+      setAvailableQuestions(allQuestions);
+      setFilteredQuestions(allQuestions);
       setQuestionsLoading(false);
     } catch (err) {
       console.error("Error fetching questions:", err);

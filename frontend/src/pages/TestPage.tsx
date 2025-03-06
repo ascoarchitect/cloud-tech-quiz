@@ -801,17 +801,20 @@ const TestPage: React.FC = () => {
             {currentQuestion.options.map((option, index) => (
               <FormControlLabel
                 key={option.id}
-                // Still use the original option.id as the value
                 value={option.id}
                 control={<Radio />}
                 label={
-                  <Typography>
-                    {/* Use sequential letters instead of the original option.id */}
-                    <strong>{String.fromCharCode(65 + index)}.</strong>{" "}
-                    {option.text}
-                  </Typography>
+                  <Box sx={{ display: "flex", textAlign: "left" }}>
+                    <Typography
+                      component="span"
+                      sx={{ minWidth: "25px", fontWeight: "bold" }}
+                    >
+                      {String.fromCharCode(65 + index)}.
+                    </Typography>
+                    <Typography component="span">{option.text}</Typography>
+                  </Box>
                 }
-                sx={{ mb: 1 }}
+                sx={{ mb: 1, alignItems: "flex-start" }}
               />
             ))}
           </RadioGroup>

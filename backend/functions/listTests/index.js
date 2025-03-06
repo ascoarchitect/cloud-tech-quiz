@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     // Base scan parameters
     let params = {
       TableName: process.env.TEST_TABLE,
-      Limit: 1000,
+      Limit: 100,
     };
 
     // Apply active filter if provided

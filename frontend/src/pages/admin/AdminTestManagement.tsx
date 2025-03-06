@@ -221,29 +221,38 @@ const AdminTestManagement: React.FC = () => {
 
     setResponsesLoading(true);
     try {
-      // Use the direct testId parameter instead of filter object
-      const result = await listResponses({
-        testId: testId,
-        limit: 1000,
-      });
+      let allResponses: ResponseType[] = [];
+      let nextToken: string | undefined = undefined;
+      let hasMore = true;
 
-      const responsesData = result.items;
+      while (hasMore) {
+        const result = await listResponses({
+          filter: { testId: { eq: testId } },
+          limit: 100,
+          nextToken: nextToken,
+        });
+
+        const responsesBatch = result.items || [];
+        allResponses = [...allResponses, ...responsesBatch];
+
+        nextToken = result.nextToken || undefined;
+        hasMore = !!nextToken;
+      }
 
       // Sort by start time (newest first)
-      responsesData.sort((a, b) => {
+      allResponses.sort((a, b) => {
         return (
           new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
         );
       });
 
-      setResponses(responsesData);
+      setResponses(allResponses);
       setResponsesLoading(false);
     } catch (err) {
       console.error("Error fetching test responses:", err);
       setResponsesLoading(false);
     }
   };
-
   // Handle updating test
   const handleUpdateTest = async () => {
     if (!test) return;
@@ -710,7 +719,7 @@ const AdminTestManagement: React.FC = () => {
 
       {/* Overview & Statistics tab */}
       <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
+        <Grid container spacing={4}>
           {/* Summary statistics */}
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3, height: "100%" }}>
@@ -822,10 +831,20 @@ const AdminTestManagement: React.FC = () => {
                   participants take the test.
                 </Alert>
               ) : (
-                <Box sx={{ height: 300 }}>
+                <Box
+                  sx={{
+                    height: 300,
+                    width: "100%",
+                    position: "relative",
+                    mb: 4,
+                  }}
+                >
                   <Bar
                     data={completionChart.data}
-                    options={completionChart.options}
+                    options={{
+                      ...completionChart.options,
+                      maintainAspectRatio: false,
+                    }}
                   />
                 </Box>
               )}
@@ -849,10 +868,20 @@ const AdminTestManagement: React.FC = () => {
                   appear once participants complete tests.
                 </Alert>
               ) : (
-                <Box sx={{ height: 400 }}>
+                <Box
+                  sx={{
+                    height: 400,
+                    width: "100%",
+                    position: "relative",
+                    mt: 3,
+                  }}
+                >
                   <Bar
                     data={categoryChart.data}
-                    options={categoryChart.options}
+                    options={{
+                      ...categoryChart.options,
+                      maintainAspectRatio: false,
+                    }}
                   />
                 </Box>
               )}

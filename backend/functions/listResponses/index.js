@@ -28,7 +28,7 @@ exports.handler = async (event) => {
     // Base parameters
     let params = {
       TableName: process.env.RESPONSE_TABLE,
-      Limit: 1000,
+      Limit: 100,
     };
 
     // Apply test filter if provided

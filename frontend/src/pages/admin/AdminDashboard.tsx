@@ -37,18 +37,35 @@ const AdminDashboard: React.FC = () => {
 
   const fetchTests = async () => {
     try {
-      const result = await listTests({ limit: 1000 });
-      const testsData = result.items || [];
+      let allTests: TestType[] = [];
+      let nextToken: string | undefined = undefined;
+      let hasMore = true;
+
+      // Loop until we've fetched all tests
+      while (hasMore) {
+        const result = await listTests({
+          limit: 100,
+          nextToken: nextToken,
+        });
+
+        // Add the current batch to our collection
+        const testsBatch = result.items || [];
+        allTests = [...allTests, ...testsBatch];
+
+        // Check if there are more tests to fetch
+        nextToken = result.nextToken || undefined;
+        hasMore = !!nextToken;
+      }
 
       // Sort by creation date (newest first)
-      testsData.sort((a, b) => {
+      allTests.sort((a, b) => {
         return (
           new Date(b.createdAt || "").getTime() -
           new Date(a.createdAt || "").getTime()
         );
       });
 
-      setTests(testsData);
+      setTests(allTests);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching tests:", err);

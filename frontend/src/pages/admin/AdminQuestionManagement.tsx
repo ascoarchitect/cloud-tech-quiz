@@ -131,15 +131,32 @@ const AdminQuestionManagement: React.FC = () => {
     applyFilters();
   }, [questions, filterText, filterDifficulty, filterCategory]);
 
-  // Fetch questions from API
+  // Fetch questions from API with pagination
   const fetchQuestions = async () => {
     setLoading(true);
     try {
-      const result = await listQuestions({ limit: 1000 });
+      let allQuestions: QuestionType[] = [];
+      let nextToken: string | undefined = undefined;
+      let hasMore = true;
 
-      const questionsData = result.items;
-      setQuestions(questionsData);
-      setFilteredQuestions(questionsData);
+      // Loop until we've fetched all questions
+      while (hasMore) {
+        const result = await listQuestions({
+          limit: 100,
+          nextToken: nextToken,
+        });
+
+        // Add the current batch to our collection
+        const questionsBatch = result.items || [];
+        allQuestions = [...allQuestions, ...questionsBatch];
+
+        // Check if there are more questions to fetch
+        nextToken = result.nextToken || undefined;
+        hasMore = !!nextToken;
+      }
+
+      setQuestions(allQuestions);
+      setFilteredQuestions(allQuestions);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching questions:", err);

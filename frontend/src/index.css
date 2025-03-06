@@ -82,3 +82,20 @@ button {
 button:hover {
   background-color: #e68a00;
 }
+
+.MuiBox-root {
+  clear: both; /* Ensures nothing floats next to it */
+}
+
+.MuiPaper-root {
+  position: relative;
+  box-sizing: border-box;
+  overflow: visible;
+  margin-bottom: 16px; /* Safe margin at the bottom */
+}
+
+.MuiBox-root:after {
+  content: "";
+  display: table;
+  clear: both; /* Clear any floats */
+}
