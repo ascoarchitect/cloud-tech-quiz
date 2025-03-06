@@ -12,8 +12,8 @@ Whilst there are many exam simulation tools (paid and free) available, this prov
 
 ### Assessment Engine
 - **Multiple Question Types**: Support for single-choice questions with explanations
-- **Categorization**: Questions organized by AWS service and certification path
-- **Difficulty Levels**: Support for different certification levels (CP, SAA, DVA, SOA)
+- **Categorization**: Questions organized by service and certification path
+- **Difficulty Levels**: Support for different certification levels (CP, SAA, DVA, SOA, Terraform, FinOps)
 - **Custom Test Creation**: Create targeted assessments for specific skill areas
 - **Randomization**: Option to randomize question and answer order
 - **Time Limitations**: Configurable time limits to simulate exam conditions
@@ -66,7 +66,7 @@ The application follows a modern serverless architecture pattern built entirely 
 ### Backend Architecture
 - **API Layer**: REST API built with Amazon API Gateway with Cognito authorizers
 - **Business Logic**: Lambda functions handling CRUD operations for questions, tests, and responses
-- **Database Layer**: 
+- **Database Layer**:
   - DynamoDB tables with GSIs for efficient querying
   - `QuestionTable`: Stores questions with category/difficulty indexes
   - `TestTable`: Manages test configurations and settings
@@ -114,7 +114,7 @@ The application follows a modern serverless architecture pattern built entirely 
 
 ### Question Table
 - **Primary Key**: `id` (UUID)
-- **GSIs**: 
+- **GSIs**:
   - `byCategory`: For querying questions by category
   - `byDifficulty`: For querying questions by difficulty level
 - **Attributes**:
