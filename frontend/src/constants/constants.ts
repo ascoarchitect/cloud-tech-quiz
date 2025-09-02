@@ -12,6 +12,8 @@ export const DIFFICULTY_OPTIONS = [
   "AzDSA",
   "AzDEA",
   "DevSecOps",
+  "GenAI-Easy",
+  "GenAI-Moderate"
 ];
 
 // Define category options based on AWS exam categories
@@ -25,6 +27,7 @@ export const CATEGORY_OPTIONS = [
   "Disaster Recovery & Resilience",
   "Cost Optimization",
   "Application Integration",
+  "GenAI",
   "Serverless",
   "Migration",
   "Machine Learning",
