@@ -3,7 +3,7 @@
  * Validate questions for import
  */
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://djvreacd6aujl.cloudfront.net",
+  "Access-Control-Allow-Origin": "https://d39ffogr9d0c34.cloudfront.net",
   "Access-Control-Allow-Headers":
     "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
   "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",

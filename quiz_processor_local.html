@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Questions Processor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .file-upload {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            text-align: center;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 20px;
+            background: white;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-group select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .table-wrapper {
+            max-height: 70vh;
+            overflow: auto;
+            position: relative;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: white;
+        }
+        
+        th {
+            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            position: relative;
+        }
+        
+        th.sortable:hover {
+            background: linear-gradient(180deg, #e9ecef 0%, #dee2e6 100%);
+        }
+        
+        th.sortable::after {
+            content: ' ↕';
+            opacity: 0.3;
+        }
+        
+        th.sorted-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+        
+        th.sorted-desc::after {
+            content: ' ↓';
+            opacity: 1;
+        }
+        
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+        
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .question-cell {
+            max-width: 400px;
+            word-wrap: break-word;
+        }
+        
+        .option-cell {
+            max-width: 250px;
+            word-wrap: break-word;
+        }
+        
+        .explanation-cell {
+            max-width: 400px;
+            word-wrap: break-word;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .correct-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .category-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #e7f3ff;
+            color: #004085;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+        
+        .difficulty-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .difficulty-badge.CP { background: #d1f2eb; color: #00695c; }
+        .difficulty-badge.SAA { background: #ffe4e1; color: #c62828; }
+        .difficulty-badge.DevSecOps { background: #f3e5f5; color: #6a1b9a; }
+        .difficulty-badge.AzAA { background: #e3f2fd; color: #1565c0; }
+        .difficulty-badge.TF { background: #fff3e0; color: #e65100; }
+        
+        .tag {
+            display: inline-block;
+            padding: 2px 6px;
+            margin: 2px;
+            background: #f0f0f0;
+            color: #495057;
+            border-radius: 8px;
+            font-size: 0.8em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px;
+            color: #6c757d;
+        }
+        
+        .no-data h3 {
+            margin-bottom: 20px;
+            color: #495057;
+        }
+        
+        #fileCount {
+            margin-top: 15px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Quiz Questions Processor</h1>
+            <p>Load your JSON quiz files to view, filter, sort, and export all questions</p>
+        </div>
+        
+        <div class="file-upload">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" multiple accept=".json" />
+                <label for="fileInput" class="file-input-label">
+                    📁 Select JSON Files (or drag & drop)
+                </label>
+            </div>
+            <div id="fileCount"></div>
+        </div>
+        
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat">
+                <div class="stat-value" id="totalQuestions">0</div>
+                <div class="stat-label">Total Questions</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="totalCategories">0</div>
+                <div class="stat-label">Categories</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="totalDifficulties">0</div>
+                <div class="stat-label">Difficulty Levels</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="totalFiles">0</div>
+                <div class="stat-label">Files Loaded</div>
+            </div>
+        </div>
+        
+        <div class="controls" id="controls" style="display: none;">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search questions, answers, or explanations..." />
+            </div>
+            
+            <div class="filter-group">
+                <label>Category:</label>
+                <select id="categoryFilter">
+                    <option value="">All Categories</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Difficulty:</label>
+                <select id="difficultyFilter">
+                    <option value="">All Difficulties</option>
+                </select>
+            </div>
+            
+            <button class="btn" onclick="exportToCSV()">📥 Export CSV</button>
+            <button class="btn" onclick="exportToExcel()">📊 Export Excel</button>
+            <button class="btn" onclick="resetFilters()">🔄 Reset</button>
+        </div>
+        
+        <div class="table-wrapper" id="tableWrapper" style="display: none;">
+            <table id="questionsTable">
+                <thead>
+                    <tr>
+                        <th class="sortable" onclick="sortTable(0)">#</th>
+                        <th class="sortable" onclick="sortTable(1)">Question</th>
+                        <th>Option A</th>
+                        <th>Option B</th>
+                        <th>Option C</th>
+                        <th>Option D</th>
+                        <th class="sortable" onclick="sortTable(6)">Correct</th>
+                        <th>Explanation</th>
+                        <th class="sortable" onclick="sortTable(8)">Category</th>
+                        <th class="sortable" onclick="sortTable(9)">Difficulty</th>
+                        <th>Tags</th>
+                        <th class="sortable" onclick="sortTable(11)">Source File</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="no-data" id="noData">
+            <h3>No Questions Loaded</h3>
+            <p>Select one or more JSON quiz files to begin</p>
+            <p style="margin-top: 20px; font-size: 0.9em;">
+                Supported format: JSON files containing a "questions" array with question objects
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let allQuestions = [];
+        let filteredQuestions = [];
+        let currentSort = { column: -1, ascending: true };
+        
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        
+        // Drag and drop support
+        document.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        document.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        // Search and filter event listeners
+        document.getElementById('searchInput').addEventListener('input', filterQuestions);
+        document.getElementById('categoryFilter').addEventListener('change', filterQuestions);
+        document.getElementById('difficultyFilter').addEventListener('change', filterQuestions);
+        
+        function handleFileSelect(event) {
+            handleFiles(event.target.files);
+        }
+        
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            allQuestions = [];
+            let fileCount = 0;
+            let errorCount = 0;
+            
+            for (let file of files) {
+                if (file.type === 'application/json' || file.name.endsWith('.json')) {
+                    try {
+                        const text = await file.text();
+                        const data = JSON.parse(text);
+                        
+                        if (data.questions && Array.isArray(data.questions)) {
+                            data.questions.forEach((q, idx) => {
+                                allQuestions.push({
+                                    ...q,
+                                    sourceFile: file.name,
+                                    globalIndex: allQuestions.length + 1
+                                });
+                            });
+                            fileCount++;
+                        }
+                    } catch (error) {
+                        console.error(`Error processing ${file.name}:`, error);
+                        errorCount++;
+                    }
+                }
+            }
+            
+            document.getElementById('fileCount').textContent = 
+                `Loaded ${fileCount} file(s) with ${allQuestions.length} questions` +
+                (errorCount > 0 ? ` (${errorCount} file(s) had errors)` : '');
+            
+            if (allQuestions.length > 0) {
+                processQuestions();
+                document.getElementById('noData').style.display = 'none';
+                document.getElementById('stats').style.display = 'flex';
+                document.getElementById('controls').style.display = 'flex';
+                document.getElementById('tableWrapper').style.display = 'block';
+            }
+        }
+        
+        function processQuestions() {
+            // Update statistics
+            const categories = [...new Set(allQuestions.map(q => q.category))];
+            const difficulties = [...new Set(allQuestions.map(q => q.difficulty))];
+            const files = [...new Set(allQuestions.map(q => q.sourceFile))];
+            
+            document.getElementById('totalQuestions').textContent = allQuestions.length;
+            document.getElementById('totalCategories').textContent = categories.length;
+            document.getElementById('totalDifficulties').textContent = difficulties.length;
+            document.getElementById('totalFiles').textContent = files.length;
+            
+            // Populate filters
+            const categoryFilter = document.getElementById('categoryFilter');
+            categoryFilter.innerHTML = '<option value="">All Categories</option>';
+            categories.sort().forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+            
+            const difficultyFilter = document.getElementById('difficultyFilter');
+            difficultyFilter.innerHTML = '<option value="">All Difficulties</option>';
+            difficulties.sort().forEach(diff => {
+                const option = document.createElement('option');
+                option.value = diff;
+                option.textContent = diff;
+                difficultyFilter.appendChild(option);
+            });
+            
+            // Display all questions initially
+            filteredQuestions = [...allQuestions];
+            displayQuestions();
+        }
+        
+        function displayQuestions() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            if (filteredQuestions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 40px;">No questions match your filters</td></tr>';
+                return;
+            }
+            
+            filteredQuestions.forEach((q, idx) => {
+                const row = tbody.insertRow();
+                
+                // Index
+                row.insertCell(0).textContent = idx + 1;
+                
+                // Question
+                const questionCell = row.insertCell(1);
+                questionCell.className = 'question-cell';
+                questionCell.textContent = q.text || q.question || '';
+                
+                // Options A-D
+                const options = q.options || [];
+                for (let i = 0; i < 4; i++) {
+                    const cell = row.insertCell(i + 2);
+                    cell.className = 'option-cell';
+                    if (options[i]) {
+                        cell.textContent = options[i].text || '';
+                    }
+                }
+                
+                // Correct Answer
+                const correctCell = row.insertCell(6);
+                const correctBadge = document.createElement('span');
+                correctBadge.className = 'correct-badge';
+                correctBadge.textContent = q.correctAnswer || '';
+                correctCell.appendChild(correctBadge);
+                
+                // Explanation
+                const explanationCell = row.insertCell(7);
+                explanationCell.className = 'explanation-cell';
+                explanationCell.textContent = q.explanation || '';
+                
+                // Category
+                const categoryCell = row.insertCell(8);
+                const categoryBadge = document.createElement('span');
+                categoryBadge.className = 'category-badge';
+                categoryBadge.textContent = q.category || '';
+                categoryCell.appendChild(categoryBadge);
+                
+                // Difficulty
+                const difficultyCell = row.insertCell(9);
+                const difficultyBadge = document.createElement('span');
+                difficultyBadge.className = `difficulty-badge ${q.difficulty || ''}`;
+                difficultyBadge.textContent = q.difficulty || '';
+                difficultyCell.appendChild(difficultyBadge);
+                
+                // Tags
+                const tagsCell = row.insertCell(10);
+                if (q.tags && Array.isArray(q.tags)) {
+                    q.tags.forEach(tag => {
+                        const tagSpan = document.createElement('span');
+                        tagSpan.className = 'tag';
+                        tagSpan.textContent = tag;
+                        tagsCell.appendChild(tagSpan);
+                    });
+                }
+                
+                // Source File
+                row.insertCell(11).textContent = q.sourceFile || '';
+            });
+        }
+        
+        function filterQuestions() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const difficultyFilter = document.getElementById('difficultyFilter').value;
+            
+            filteredQuestions = allQuestions.filter(q => {
+                // Search filter
+                if (searchTerm) {
+                    const searchableText = [
+                        q.text || q.question || '',
+                        q.explanation || '',
+                        ...(q.options || []).map(o => o.text || ''),
+                        ...(q.tags || [])
+                    ].join(' ').toLowerCase();
+                    
+                    if (!searchableText.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+                
+                // Category filter
+                if (categoryFilter && q.category !== categoryFilter) {
+                    return false;
+                }
+                
+                // Difficulty filter
+                if (difficultyFilter && q.difficulty !== difficultyFilter) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            displayQuestions();
+        }
+        
+        function sortTable(columnIndex) {
+            const headers = document.querySelectorAll('th');
+            headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+            
+            if (currentSort.column === columnIndex) {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.column = columnIndex;
+                currentSort.ascending = true;
+            }
+            
+            filteredQuestions.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(columnIndex) {
+                    case 0: // Index
+                        aVal = a.globalIndex;
+                        bVal = b.globalIndex;
+                        break;
+                    case 1: // Question
+                        aVal = a.text || a.question || '';
+                        bVal = b.text || b.question || '';
+                        break;
+                    case 6: // Correct Answer
+                        aVal = a.correctAnswer || '';
+                        bVal = b.correctAnswer || '';
+                        break;
+                    case 8: // Category
+                        aVal = a.category || '';
+                        bVal = b.category || '';
+                        break;
+                    case 9: // Difficulty
+                        aVal = a.difficulty || '';
+                        bVal = b.difficulty || '';
+                        break;
+                    case 11: // Source File
+                        aVal = a.sourceFile || '';
+                        bVal = b.sourceFile || '';
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = bVal.toLowerCase();
+                }
+                
+                if (aVal < bVal) return currentSort.ascending ? -1 : 1;
+                if (aVal > bVal) return currentSort.ascending ? 1 : -1;
+                return 0;
+            });
+            
+            headers[columnIndex].classList.add(currentSort.ascending ? 'sorted-asc' : 'sorted-desc');
+            displayQuestions();
+        }
+        
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('difficultyFilter').value = '';
+            filterQuestions();
+        }
+        
+        function exportToCSV() {
+            if (filteredQuestions.length === 0) {
+                alert('No questions to export');
+                return;
+            }
+            
+            const headers = ['#', 'Question', 'Option A', 'Option B', 'Option C', 'Option D', 
+                           'Correct Answer', 'Explanation', 'Category', 'Difficulty', 'Tags', 'Source File'];
+            
+            const rows = filteredQuestions.map((q, idx) => {
+                const options = q.options || [];
+                return [
+                    idx + 1,
+                    `"${(q.text || q.question || '').replace(/"/g, '""')}"`,
+                    `"${(options[0]?.text || '').replace(/"/g, '""')}"`,
+                    `"${(options[1]?.text || '').replace(/"/g, '""')}"`,
+                    `"${(options[2]?.text || '').replace(/"/g, '""')}"`,
+                    `"${(options[3]?.text || '').replace(/"/g, '""')}"`,
+                    q.correctAnswer || '',
+                    `"${(q.explanation || '').replace(/"/g, '""')}"`,
+                    q.category || '',
+                    q.difficulty || '',
+                    (q.tags || []).join('; '),
+                    q.sourceFile || ''
+                ];
+            });
+            
+            const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quiz_questions_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function exportToExcel() {
+            // For Excel, we'll create a more detailed CSV that Excel can open properly
+            if (filteredQuestions.length === 0) {
+                alert('No questions to export');
+                return;
+            }
+            
+            // Excel-friendly CSV with BOM for proper UTF-8 encoding
+            const BOM = '\uFEFF';
+            const headers = ['#', 'Question', 'Option A', 'Option B', 'Option C', 'Option D', 
+                           'Correct Answer', 'Explanation', 'Category', 'Difficulty', 'Tags', 'Source File'];
+            
+            const rows = filteredQuestions.map((q, idx) => {
+                const options = q.options || [];
+                return [
+                    idx + 1,
+                    (q.text || q.question || ''),
+                    (options[0]?.text || ''),
+                    (options[1]?.text || ''),
+                    (options[2]?.text || ''),
+                    (options[3]?.text || ''),
+                    q.correctAnswer || '',
+                    (q.explanation || ''),
+                    q.category || '',
+                    q.difficulty || '',
+                    (q.tags || []).join('; '),
+                    q.sourceFile || ''
+                ].map(cell => {
+                    // Escape quotes and wrap in quotes if contains comma or newline
+                    const str = String(cell);
+                    if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                        return `"${str.replace(/"/g, '""')}"`;
+                    }
+                    return str;
+                });
+            });
+            
+            const csv = BOM + [headers, ...rows].map(row => row.join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quiz_questions_excel_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
